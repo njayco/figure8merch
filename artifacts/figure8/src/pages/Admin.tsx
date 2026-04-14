@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Users, ShoppingBag, DollarSign, Package, Plus, Pencil, Trash2, Upload } from "lucide-react";
 import { format } from "date-fns";
+import { getToken } from "@/lib/auth";
 
 interface ProductFormData {
   name: string;
@@ -76,19 +77,24 @@ function ProductFormDialog({
   const handleFileUpload = async (file: File) => {
     setUploading(true);
     try {
+      const token = getToken();
+      if (!token) throw new Error("Not authenticated");
       const formData = new FormData();
       formData.append("image", file);
       const res = await fetch("/api/upload/image", {
         method: "POST",
-        credentials: "include",
+        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
-      if (!res.ok) throw new Error("Upload failed");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(err.error ?? "Upload failed");
+      }
       const { url } = await res.json() as { url: string };
       handleChange("imageUrl", url);
       toast({ title: "Image uploaded successfully" });
-    } catch {
-      toast({ variant: "destructive", title: "Image upload failed" });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Image upload failed", description: e instanceof Error ? e.message : undefined });
     } finally {
       setUploading(false);
     }

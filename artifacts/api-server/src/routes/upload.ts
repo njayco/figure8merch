@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
-import { requireAuth, type AuthRequest } from "../middlewares/auth";
+import { requireAdmin, type AuthRequest } from "../middlewares/auth";
 
 const UPLOADS_DIR = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(UPLOADS_DIR)) {
@@ -45,7 +45,7 @@ router.use("/uploads", (req, res, next) => {
 
 router.post(
   "/upload/image",
-  requireAuth,
+  requireAdmin,
   upload.single("image"),
   (req: AuthRequest, res): void => {
     if (!req.file) {
