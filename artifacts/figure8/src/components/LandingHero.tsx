@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import MainPhoto from "@assets/Main_Profile_Photo_1776199292804.jpg";
 import ArmPhoto from "@assets/f8arm_1776199292804.JPG";
+import BrownYogaPhoto from "@assets/Brown_Set_Yoga_Class_1776199933371.png";
+import CreamGymPhoto from "@assets/Cream_Set_Gym_Pic_1776199933371.png";
 
 interface Panel {
   id: number;
@@ -36,8 +38,17 @@ const PANELS: Panel[] = [
   {
     id: 3,
     label: "03",
-    image: MainPhoto,
-    objectPosition: "center bottom",
+    image: BrownYogaPhoto,
+    objectPosition: "center top",
+    ctaLine1: "New Arrivals",
+    ctaLine2: "Move in Every\nDirection",
+    href: "/shop",
+  },
+  {
+    id: 4,
+    label: "04",
+    image: CreamGymPhoto,
+    objectPosition: "center center",
     ctaLine1: "Community",
     ctaLine2: "Follow Us on\nInstagram",
     href: "https://www.instagram.com",
@@ -45,26 +56,33 @@ const PANELS: Panel[] = [
   },
 ];
 
-const PANEL_POSITIONS = [
-  { left: "2rem", right: undefined },
-  { left: "33%", right: undefined },
-  { left: undefined, right: "4rem" },
+const PANEL_POSITIONS: { left?: string; right?: string }[] = [
+  { left: "1.5rem" },
+  { left: "25%" },
+  { left: "50%" },
+  { right: "4.5rem" },
 ];
 
 export function LandingHero() {
-  const [activePanel, setActivePanel] = useState(0); // index into PANELS
+  const [activePanel, setActivePanel] = useState(0);
   const [hoveredPanel, setHoveredPanel] = useState<number | null>(null);
   const [ctaVisible, setCtaVisible] = useState(true);
   const [scrollY, setScrollY] = useState(0);
   const [progress, setProgress] = useState(0);
   const [visible, setVisible] = useState(false);
+  const ctaFadeRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const [, navigate] = useLocation();
-  const ctaFadeRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setVisible(true), 100);
     return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (ctaFadeRef.current) clearTimeout(ctaFadeRef.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -87,30 +105,30 @@ export function LandingHero() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  useEffect(() => {
-    return () => {
-      if (ctaFadeRef.current) clearTimeout(ctaFadeRef.current);
-    };
-  }, []);
-
-  const handlePanelSelect = useCallback((idx: number) => {
+  const handleHover = (idx: number) => {
+    setHoveredPanel(idx);
     if (idx === activePanel) return;
     setCtaVisible(false);
     if (ctaFadeRef.current) clearTimeout(ctaFadeRef.current);
     ctaFadeRef.current = setTimeout(() => {
       setActivePanel(idx);
       setCtaVisible(true);
-    }, 280);
-  }, [activePanel]);
+    }, 220);
+  };
 
-  const handleCtaClick = () => {
-    const panel = PANELS[activePanel];
+  const handleLeave = () => {
+    setHoveredPanel(null);
+  };
+
+  const handleClick = (panel: Panel) => {
     if (panel.external) {
       window.open(panel.href, "_blank", "noopener,noreferrer");
     } else {
       navigate(panel.href);
     }
   };
+
+  const handleCtaClick = () => handleClick(PANELS[activePanel]);
 
   const parallaxY = scrollY * 0.3;
   const currentPanel = PANELS[activePanel];
@@ -120,7 +138,7 @@ export function LandingHero() {
       ref={ref}
       style={{ height: "100vh", position: "relative", overflow: "hidden", background: "#0d0806" }}
     >
-      {/* Background images — all rendered, crossfade via opacity */}
+      {/* All 4 background images — crossfade via opacity */}
       {PANELS.map((panel, idx) => (
         <div
           key={panel.id}
@@ -149,7 +167,7 @@ export function LandingHero() {
         </div>
       ))}
 
-      {/* Dark gradient overlay */}
+      {/* Dark gradient */}
       <div style={{
         position: "absolute",
         inset: 0,
@@ -249,25 +267,25 @@ export function LandingHero() {
               transform: "translateY(-50%)",
               zIndex: 15,
               opacity: visible ? 1 : 0,
-              transition: `opacity 0.8s ${0.5 + idx * 0.1}s ease`,
+              transition: `opacity 0.8s ${0.5 + idx * 0.08}s ease`,
             }}
           >
-            {/* Thumbnail preview — floats above the number when hovered */}
+            {/* Thumbnail preview */}
             <div
               style={{
                 position: "absolute",
                 bottom: "calc(100% + 1rem)",
-                left: idx === 2 ? "auto" : "50%",
-                right: idx === 2 ? "0" : "auto",
-                transform: idx === 2 ? "none" : "translateX(-50%)",
-                width: "90px",
-                height: "115px",
+                left: idx >= 3 ? "auto" : "50%",
+                right: idx >= 3 ? "0" : "auto",
+                transform: idx >= 3 ? "none" : "translateX(-50%)",
+                width: "88px",
+                height: "112px",
                 overflow: "hidden",
                 opacity: isHovered ? 1 : 0,
                 pointerEvents: "none",
-                transition: "opacity 0.2s ease",
-                boxShadow: "0 4px 24px rgba(0,0,0,0.5)",
-                border: "1px solid rgba(255,255,255,0.15)",
+                transition: "opacity 0.18s ease",
+                boxShadow: "0 4px 20px rgba(0,0,0,0.55)",
+                border: "1px solid rgba(255,255,255,0.12)",
               }}
             >
               <img
@@ -282,11 +300,11 @@ export function LandingHero() {
               />
             </div>
 
-            {/* The number button */}
+            {/* Number button */}
             <button
-              onClick={() => handlePanelSelect(idx)}
-              onMouseEnter={() => setHoveredPanel(idx)}
-              onMouseLeave={() => setHoveredPanel(null)}
+              onClick={() => handleClick(panel)}
+              onMouseEnter={() => handleHover(idx)}
+              onMouseLeave={handleLeave}
               style={{
                 background: "none",
                 border: "none",
@@ -301,7 +319,7 @@ export function LandingHero() {
                   ? "rgba(255,255,255,0.75)"
                   : "rgba(255,255,255,0.4)",
                 letterSpacing: "0.1em",
-                transition: "color 0.25s ease, font-size 0.25s ease",
+                transition: "color 0.2s ease, font-size 0.2s ease",
                 display: "block",
                 lineHeight: 1,
               }}
@@ -312,7 +330,7 @@ export function LandingHero() {
         );
       })}
 
-      {/* Far right — Scroll label (rotated) */}
+      {/* Scroll label */}
       <div
         style={{
           position: "absolute",
@@ -335,7 +353,7 @@ export function LandingHero() {
         }}>Scroll</span>
       </div>
 
-      {/* Bottom-left — Dynamic CTA text */}
+      {/* Bottom-left CTA */}
       <div
         style={{
           position: "absolute",
@@ -347,40 +365,33 @@ export function LandingHero() {
           transition: "opacity 0.9s 0.5s ease, transform 0.9s 0.5s ease",
         }}
       >
-        <div
-          onClick={handleCtaClick}
-          style={{ cursor: "pointer" }}
-        >
-          <p
-            style={{
-              fontFamily: "sans-serif",
-              fontSize: "clamp(0.65rem, 1.2vw, 0.75rem)",
-              fontWeight: 600,
-              letterSpacing: "0.2em",
-              textTransform: "uppercase",
-              color: "rgba(255,255,255,0.75)",
-              marginBottom: "0.35rem",
-              opacity: ctaVisible ? 1 : 0,
-              transition: "opacity 0.28s ease",
-            }}
-          >
+        <div onClick={handleCtaClick} style={{ cursor: "pointer" }}>
+          <p style={{
+            fontFamily: "sans-serif",
+            fontSize: "clamp(0.65rem, 1.2vw, 0.75rem)",
+            fontWeight: 600,
+            letterSpacing: "0.2em",
+            textTransform: "uppercase",
+            color: "rgba(255,255,255,0.75)",
+            marginBottom: "0.35rem",
+            opacity: ctaVisible ? 1 : 0,
+            transition: "opacity 0.22s ease",
+          }}>
             {currentPanel.ctaLine1}
           </p>
-          <h2
-            style={{
-              fontFamily: "sans-serif",
-              fontSize: "clamp(2.2rem, 5.5vw, 4.5rem)",
-              fontWeight: 800,
-              lineHeight: 1.0,
-              letterSpacing: "-0.01em",
-              textTransform: "uppercase",
-              color: "#fff",
-              margin: 0,
-              whiteSpace: "pre-line",
-              opacity: ctaVisible ? 1 : 0,
-              transition: "opacity 0.28s ease",
-            }}
-          >
+          <h2 style={{
+            fontFamily: "sans-serif",
+            fontSize: "clamp(2.2rem, 5.5vw, 4.5rem)",
+            fontWeight: 800,
+            lineHeight: 1.0,
+            letterSpacing: "-0.01em",
+            textTransform: "uppercase",
+            color: "#fff",
+            margin: 0,
+            whiteSpace: "pre-line",
+            opacity: ctaVisible ? 1 : 0,
+            transition: "opacity 0.22s ease",
+          }}>
             {currentPanel.ctaLine2}
           </h2>
         </div>
