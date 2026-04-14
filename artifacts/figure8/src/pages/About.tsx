@@ -1,5 +1,5 @@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Truck, RotateCcw, Droplets, MapPin, Mail, Phone } from "lucide-react";
+import { Droplets, MapPin, Truck } from "lucide-react";
 import ArmPhoto from "@assets/f8arm_1776199292804.JPG";
 import MainPhoto from "@assets/Main_Profile_Photo_1776199292804.jpg";
 
@@ -7,7 +7,7 @@ export function About() {
   return (
     <main className="w-full">
 
-      {/* ── Hero ─────────────────────────────────────────────────────── */}
+      {/* Full-screen hero */}
       <section style={{
         position: "relative",
         height: "100vh",
@@ -26,14 +26,12 @@ export function About() {
             objectPosition: "center center",
           }}
         />
-        {/* Gradient overlay */}
         <div style={{
           position: "absolute",
           inset: 0,
           background: "linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.1) 40%, rgba(0,0,0,0.65) 100%)",
         }} />
 
-        {/* Top-left logo */}
         <div style={{
           position: "absolute",
           top: "2rem",
@@ -50,7 +48,6 @@ export function About() {
           figure 8.
         </div>
 
-        {/* Bottom-left headline */}
         <div style={{
           position: "absolute",
           bottom: "2.5rem",
@@ -83,7 +80,7 @@ export function About() {
         </div>
       </section>
 
-      {/* ── Brand Story ──────────────────────────────────────────────── */}
+      {/* Brand story */}
       <section style={{
         display: "grid",
         gridTemplateColumns: "1fr 2fr",
@@ -91,13 +88,8 @@ export function About() {
         padding: "7rem 5rem",
         background: "#fff",
         alignItems: "start",
-      }}
-        className="grid-cols-1 md:grid-cols-[1fr_2fr]"
-      >
-        {/* Left — mark / logotype */}
-        <div style={{
-          paddingTop: "0.5rem",
-        }}>
+      }}>
+        <div style={{ paddingTop: "0.5rem" }}>
           <div style={{
             fontFamily: "'Georgia', 'Times New Roman', serif",
             fontStyle: "italic",
@@ -112,7 +104,6 @@ export function About() {
           </div>
         </div>
 
-        {/* Right — statement */}
         <div>
           <p style={{
             fontFamily: "'Georgia', 'Times New Roman', serif",
@@ -166,7 +157,7 @@ export function About() {
         </div>
       </section>
 
-      {/* ── Full-width image break ────────────────────────────────────── */}
+      {/* Full-width image break */}
       <section style={{
         height: "65vh",
         overflow: "hidden",
@@ -201,7 +192,7 @@ export function About() {
         </div>
       </section>
 
-      {/* ── Info Pillars ─────────────────────────────────────────────── */}
+      {/* Info pillars */}
       <section style={{
         padding: "6rem 2.5rem",
         background: "#faf8f5",
@@ -212,9 +203,7 @@ export function About() {
           display: "grid",
           gridTemplateColumns: "repeat(3, 1fr)",
           gap: "3rem",
-        }}
-          className="grid-cols-1 md:grid-cols-3"
-        >
+        }}>
           {[
             {
               icon: <Droplets className="h-5 w-5" />,
@@ -260,7 +249,7 @@ export function About() {
         </div>
       </section>
 
-      {/* ── FAQ + Contact ─────────────────────────────────────────────── */}
+      {/* FAQ + Contact */}
       <section style={{
         padding: "6rem 2.5rem",
         background: "#fff",
@@ -272,11 +261,8 @@ export function About() {
           gridTemplateColumns: "1fr 1fr",
           gap: "6rem",
           alignItems: "start",
-        }}
-          className="grid-cols-1 lg:grid-cols-2"
-        >
+        }}>
 
-          {/* FAQ */}
           <div>
             <p style={{
               fontFamily: "sans-serif",
@@ -311,7 +297,7 @@ export function About() {
                 },
                 {
                   q: "How can I track my order?",
-                  a: "Once your order ships, you'll receive an email with a tracking number and link.",
+                  a: "Once your order ships, you'll receive an email with a tracking number and a link.",
                 },
               ].map(({ q, a }, i) => (
                 <AccordionItem key={i} value={`item-${i}`} style={{ borderColor: "#e5e0d8" }}>
@@ -334,7 +320,6 @@ export function About() {
             </Accordion>
           </div>
 
-          {/* Contact */}
           <div>
             <p style={{
               fontFamily: "sans-serif",
@@ -363,91 +348,67 @@ export function About() {
               Questions about sizing, fit, or an existing order? Our concierge team is here to help.
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
-              <div style={{ borderTop: "1px solid #e5e0d8", paddingTop: "1.5rem" }}>
-                <p style={{
-                  fontFamily: "sans-serif",
-                  fontSize: "0.65rem",
-                  fontWeight: 700,
-                  letterSpacing: "0.25em",
-                  textTransform: "uppercase",
-                  color: "#9b7d65",
-                  marginBottom: "0.4rem",
-                }}>Email</p>
-                <a
-                  href="mailto:F8merch@gmail.com"
-                  style={{
-                    fontFamily: "'Georgia', serif",
-                    fontSize: "1.05rem",
-                    color: "#1a1a1a",
-                    textDecoration: "none",
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.color = "#9b7d65")}
-                  onMouseLeave={e => (e.currentTarget.style.color = "#1a1a1a")}
-                >
-                  F8merch@gmail.com
-                </a>
-              </div>
-              <div style={{ borderTop: "1px solid #e5e0d8", paddingTop: "1.5rem" }}>
-                <p style={{
-                  fontFamily: "sans-serif",
-                  fontSize: "0.65rem",
-                  fontWeight: 700,
-                  letterSpacing: "0.25em",
-                  textTransform: "uppercase",
-                  color: "#9b7d65",
-                  marginBottom: "0.4rem",
-                }}>Phone</p>
-                <a
-                  href="tel:786-967-9149"
-                  style={{
-                    fontFamily: "'Georgia', serif",
-                    fontSize: "1.05rem",
-                    color: "#1a1a1a",
-                    textDecoration: "none",
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.color = "#9b7d65")}
-                  onMouseLeave={e => (e.currentTarget.style.color = "#1a1a1a")}
-                >
-                  (786) 967-9149
-                </a>
-                <p style={{
-                  fontFamily: "sans-serif",
-                  fontSize: "0.7rem",
-                  color: "#9b7d65",
-                  marginTop: "0.3rem",
-                  letterSpacing: "0.1em",
-                }}>Mon–Fri, 9am–5pm EST</p>
-              </div>
-              <div style={{ borderTop: "1px solid #e5e0d8", paddingTop: "1.5rem" }}>
-                <p style={{
-                  fontFamily: "sans-serif",
-                  fontSize: "0.65rem",
-                  fontWeight: 700,
-                  letterSpacing: "0.25em",
-                  textTransform: "uppercase",
-                  color: "#9b7d65",
-                  marginBottom: "0.4rem",
-                }}>Instagram</p>
-                <a
-                  href="https://www.instagram.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    fontFamily: "'Georgia', serif",
-                    fontSize: "1.05rem",
-                    color: "#1a1a1a",
-                    textDecoration: "none",
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.color = "#9b7d65")}
-                  onMouseLeave={e => (e.currentTarget.style.color = "#1a1a1a")}
-                >
-                  @figure8collections
-                </a>
-              </div>
+              {[
+                {
+                  label: "Email",
+                  value: "F8merch@gmail.com",
+                  href: "mailto:F8merch@gmail.com",
+                },
+                {
+                  label: "Phone",
+                  value: "(786) 967-9149",
+                  href: "tel:786-967-9149",
+                  sub: "Mon–Fri, 9am–5pm EST",
+                },
+                {
+                  label: "Instagram",
+                  value: "@figure8collections",
+                  href: "https://www.instagram.com",
+                  external: true,
+                },
+              ].map(({ label, value, href, sub, external }) => (
+                <div key={label} style={{ borderTop: "1px solid #e5e0d8", paddingTop: "1.5rem" }}>
+                  <p style={{
+                    fontFamily: "sans-serif",
+                    fontSize: "0.65rem",
+                    fontWeight: 700,
+                    letterSpacing: "0.25em",
+                    textTransform: "uppercase",
+                    color: "#9b7d65",
+                    marginBottom: "0.4rem",
+                  }}>{label}</p>
+                  <a
+                    href={href}
+                    target={external ? "_blank" : undefined}
+                    rel={external ? "noopener noreferrer" : undefined}
+                    style={{
+                      fontFamily: "'Georgia', serif",
+                      fontSize: "1.05rem",
+                      color: "#1a1a1a",
+                      textDecoration: "none",
+                      transition: "color 0.2s ease",
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.color = "#9b7d65")}
+                    onMouseLeave={e => (e.currentTarget.style.color = "#1a1a1a")}
+                  >
+                    {value}
+                  </a>
+                  {sub && (
+                    <p style={{
+                      fontFamily: "sans-serif",
+                      fontSize: "0.7rem",
+                      color: "#9b7d65",
+                      marginTop: "0.3rem",
+                      letterSpacing: "0.1em",
+                    }}>{sub}</p>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         </div>
       </section>
+
     </main>
   );
 }

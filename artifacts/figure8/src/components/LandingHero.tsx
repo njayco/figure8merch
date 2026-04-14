@@ -87,9 +87,14 @@ export function LandingHero() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (ctaFadeRef.current) clearTimeout(ctaFadeRef.current);
+    };
+  }, []);
+
   const handlePanelSelect = useCallback((idx: number) => {
     if (idx === activePanel) return;
-    // Fade out CTA, switch panel, fade in
     setCtaVisible(false);
     if (ctaFadeRef.current) clearTimeout(ctaFadeRef.current);
     ctaFadeRef.current = setTimeout(() => {
@@ -258,7 +263,7 @@ export function LandingHero() {
                 width: "90px",
                 height: "115px",
                 overflow: "hidden",
-                opacity: isHovered && !isActive ? 1 : 0,
+                opacity: isHovered ? 1 : 0,
                 pointerEvents: "none",
                 transition: "opacity 0.2s ease",
                 boxShadow: "0 4px 24px rgba(0,0,0,0.5)",
