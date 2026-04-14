@@ -1,6 +1,6 @@
 import { useListOrders, getListOrdersQueryKey } from "@workspace/api-client-react";
 import type { Order, OrderItem } from "@workspace/api-client-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 import { Spinner } from "@/components/ui/spinner";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";

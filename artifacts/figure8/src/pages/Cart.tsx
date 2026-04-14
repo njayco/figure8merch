@@ -2,7 +2,7 @@ import { Link } from "wouter";
 import { Trash2, Plus, Minus, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useGetCart, getGetCartQueryKey, useUpdateCartItem, useRemoveFromCart } from "@workspace/api-client-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 import { Spinner } from "@/components/ui/spinner";
 import { useQueryClient } from "@tanstack/react-query";
 

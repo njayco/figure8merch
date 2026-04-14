@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Redirect } from "wouter";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 import { Spinner } from "@/components/ui/spinner";
 
 interface ProtectedRouteProps {

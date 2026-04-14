@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { Heart } from "lucide-react";
 import type { Product } from "@workspace/api-client-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useAddToWishlist, useRemoveFromWishlist, useGetWishlist, getGetWishlistQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Menu, X, ShoppingBag, User as UserIcon, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 import { useGetCart, getGetCartQueryKey } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 

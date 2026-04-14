@@ -1,6 +1,6 @@
 import { useGetWishlist, getGetWishlistQueryKey } from "@workspace/api-client-react";
 import type { Product } from "@workspace/api-client-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 import { ProductCard } from "@/components/ProductCard";
 import { Spinner } from "@/components/ui/spinner";
 import { Link } from "wouter";
