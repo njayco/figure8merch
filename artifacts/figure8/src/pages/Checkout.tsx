@@ -224,10 +224,19 @@ export function Checkout() {
                   </div>
                 </div>
 
-                {/* Payment (Simulated) */}
+                {/* Payment (Test Mode) */}
                 <div className="bg-background border border-border p-6 shadow-sm">
                   <h2 className="text-lg font-serif font-bold mb-2">Payment</h2>
-                  <p className="text-sm text-muted-foreground mb-6">All transactions are secure and encrypted. (Test Mode)</p>
+                  
+                  {/* Test Mode Banner */}
+                  <div className="bg-amber-50 border border-amber-200 rounded p-3 mb-6">
+                    <p className="text-sm font-medium text-amber-800">Test Mode — Use Stripe test cards:</p>
+                    <p className="text-xs text-amber-700 mt-1">Success: <span className="font-mono font-bold">4242 4242 4242 4242</span></p>
+                    <p className="text-xs text-amber-700">Declined: <span className="font-mono font-bold">4000 0000 0000 9995</span></p>
+                    <p className="text-xs text-amber-600 mt-1">Any future expiry date and any 3-digit CVC work.</p>
+                  </div>
+                  
+                  <p className="text-sm text-muted-foreground mb-6">All transactions are secure and encrypted.</p>
                   
                   <div className="space-y-4">
                     <FormField
@@ -237,7 +246,7 @@ export function Checkout() {
                         <FormItem>
                           <FormLabel className="text-xs uppercase tracking-wider">Card Number</FormLabel>
                           <FormControl>
-                            <Input placeholder="0000 0000 0000 0000" className="rounded-none border-border focus-visible:ring-primary" {...field} />
+                            <Input placeholder="4242 4242 4242 4242" className="rounded-none border-border focus-visible:ring-primary font-mono" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -252,7 +261,7 @@ export function Checkout() {
                           <FormItem>
                             <FormLabel className="text-xs uppercase tracking-wider">Expiry (MM/YY)</FormLabel>
                             <FormControl>
-                              <Input placeholder="MM/YY" className="rounded-none border-border focus-visible:ring-primary" {...field} />
+                              <Input placeholder="12/26" className="rounded-none border-border focus-visible:ring-primary font-mono" {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -265,7 +274,7 @@ export function Checkout() {
                           <FormItem>
                             <FormLabel className="text-xs uppercase tracking-wider">CVC</FormLabel>
                             <FormControl>
-                              <Input placeholder="123" className="rounded-none border-border focus-visible:ring-primary" {...field} />
+                              <Input placeholder="123" className="rounded-none border-border focus-visible:ring-primary font-mono" {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
