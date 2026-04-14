@@ -83,8 +83,8 @@ pnpm --filter @workspace/figure8 run dev
 
 ## Admin Access
 
-- **Email:** `admin@figure8.com`
-- **Password:** `figure8admin`
+Admin credentials are stored securely as environment secrets (`ADMIN_EMAIL` / `ADMIN_PASSWORD`).
+Set them in your environment before running the seed script.
 
 ---
 

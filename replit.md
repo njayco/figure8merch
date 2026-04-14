@@ -36,8 +36,8 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 
 ## Admin Credentials
 
-- Email: `admin@figure8.com`
-- Password: `figure8admin`
+Stored as environment secrets: `ADMIN_EMAIL` and `ADMIN_PASSWORD`.
+Set via Replit Secrets before running the seed script.
 
 ## Packages
 
