@@ -8,5 +8,4 @@
 
 export interface UpdateCartItemBody {
   quantity: number;
-  size?: string;
 }

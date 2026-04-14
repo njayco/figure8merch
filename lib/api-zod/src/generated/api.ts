@@ -232,6 +232,7 @@ export const AddToCartResponse = zod.object({
  */
 export const UpdateCartItemParams = zod.object({
   productId: zod.coerce.number(),
+  size: zod.coerce.string(),
 });
 
 export const UpdateCartItemBody = zod.object({
@@ -266,6 +267,7 @@ export const UpdateCartItemResponse = zod.object({
  */
 export const RemoveFromCartParams = zod.object({
   productId: zod.coerce.number(),
+  size: zod.coerce.string(),
 });
 
 export const RemoveFromCartResponse = zod.object({

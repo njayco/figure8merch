@@ -86,7 +86,6 @@ export interface CartItemBody {
 
 export interface UpdateCartItemBody {
   quantity: number;
-  size?: string;
 }
 
 export interface OrderItem {

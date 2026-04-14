@@ -1024,7 +1024,7 @@ export const useAddToCart = <
  * @summary Update cart item quantity
  */
 export const getUpdateCartItemUrl = (productId: number, size: string) => {
-  return `/api/cart/${productId}/${encodeURIComponent(size)}`;
+  return `/api/cart/${productId}/${size}`;
 };
 
 export const updateCartItem = async (
@@ -1112,7 +1112,7 @@ export const useUpdateCartItem = <
  * @summary Remove item from cart
  */
 export const getRemoveFromCartUrl = (productId: number, size: string) => {
-  return `/api/cart/${productId}/${encodeURIComponent(size)}`;
+  return `/api/cart/${productId}/${size}`;
 };
 
 export const removeFromCart = async (
