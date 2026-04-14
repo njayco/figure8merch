@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
+import { Heart, ShoppingBag, User as UserIcon } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { useGetCart, getGetCartQueryKey } from "@workspace/api-client-react";
 import MainPhoto from "@assets/Main_Profile_Photo_1776199292804.jpg";
 import ArmPhoto from "@assets/f8arm_1776199292804.JPG";
 import BrownYogaPhoto from "@assets/Brown_Set_Yoga_Class_1776199933371.png";
@@ -73,6 +76,8 @@ export function LandingHero() {
   const ctaFadeRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const [, navigate] = useLocation();
+  const { user } = useAuth();
+  const { data: cart } = useGetCart({ query: { enabled: !!user, queryKey: getGetCartQueryKey() } });
 
   useEffect(() => {
     const timer = setTimeout(() => setVisible(true), 100);
@@ -210,13 +215,13 @@ export function LandingHero() {
         }} />
       </div>
 
-      {/* Top navigation */}
+      {/* Top navigation — full site header */}
       <nav style={{
         position: "absolute",
         top: 0,
         left: 0,
         right: 0,
-        padding: "2rem 2.5rem",
+        padding: "1.5rem 2.5rem",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
@@ -225,6 +230,37 @@ export function LandingHero() {
         transform: visible ? "translateY(0)" : "translateY(-10px)",
         transition: "opacity 0.8s 0.4s ease, transform 0.8s 0.4s ease",
       }}>
+        {/* Left: nav links */}
+        <div style={{ display: "flex", gap: "2rem", alignItems: "center", flex: 1 }}>
+          {[
+            { label: "New Arrivals", href: "/shop?category=new" },
+            { label: "Collections", href: "/shop" },
+            { label: "Athleisure", href: "/shop?category=athleisure" },
+            { label: "Our Story", href: "/about" },
+            { label: "Community", href: "/community" },
+          ].map(link => (
+            <Link key={link.label} href={link.href}>
+              <span style={{
+                fontFamily: "'Helvetica Neue', Arial, sans-serif",
+                fontSize: "0.65rem",
+                fontWeight: 500,
+                letterSpacing: "0.2em",
+                textTransform: "uppercase",
+                color: "rgba(255,255,255,0.88)",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+                transition: "color 0.2s",
+              }}
+              onMouseEnter={e => (e.currentTarget.style.color = "#fff")}
+              onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.88)")}
+              >
+                {link.label}
+              </span>
+            </Link>
+          ))}
+        </div>
+
+        {/* Center: logo */}
         <div style={{
           fontFamily: "'Georgia', 'Times New Roman', serif",
           fontStyle: "italic",
@@ -233,34 +269,42 @@ export function LandingHero() {
           color: "#fff",
           letterSpacing: "0.05em",
           userSelect: "none",
+          flex: "0 0 auto",
+          textAlign: "center",
         }}>
           figure 8.
         </div>
-        <div style={{ display: "flex", gap: "2.5rem", alignItems: "center" }}>
-          <Link href="/shop">
-            <span style={{
-              fontFamily: "sans-serif",
-              fontSize: "0.7rem",
-              fontWeight: 600,
-              letterSpacing: "0.2em",
-              textTransform: "uppercase",
-              color: "#fff",
-              cursor: "pointer",
-            }}>
-              Shop Now
-            </span>
+
+        {/* Right: icons */}
+        <div style={{ display: "flex", gap: "1.5rem", alignItems: "center", flex: 1, justifyContent: "flex-end" }}>
+          <Link href="/wishlist">
+            <Heart size={18} color="rgba(255,255,255,0.88)" strokeWidth={1.5} style={{ cursor: "pointer", display: "block" }} />
+          </Link>
+          <Link href="/login">
+            <UserIcon size={18} color="rgba(255,255,255,0.88)" strokeWidth={1.5} style={{ cursor: "pointer", display: "block" }} />
           </Link>
           <Link href="/cart">
-            <span style={{
-              fontFamily: "sans-serif",
-              fontSize: "0.7rem",
-              fontWeight: 600,
-              letterSpacing: "0.2em",
-              textTransform: "uppercase",
-              color: "#fff",
-              cursor: "pointer",
-            }}>
-              Cart
+            <span style={{ position: "relative", display: "inline-flex" }}>
+              <ShoppingBag size={18} color="rgba(255,255,255,0.88)" strokeWidth={1.5} style={{ cursor: "pointer", display: "block" }} />
+              {cart && cart.itemCount > 0 && (
+                <span style={{
+                  position: "absolute",
+                  top: "-6px",
+                  right: "-6px",
+                  background: "#c8b89a",
+                  color: "#1a1008",
+                  fontSize: "9px",
+                  fontWeight: 700,
+                  width: "14px",
+                  height: "14px",
+                  borderRadius: "50%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}>
+                  {cart.itemCount}
+                </span>
+              )}
             </span>
           </Link>
         </div>
