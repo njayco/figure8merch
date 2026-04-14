@@ -97,19 +97,25 @@ async function seed() {
     console.log(`Skipping products seed: ${existingProducts.length} products already exist`);
   }
 
-  const existingAdmin = await db.select().from(usersTable).where(eq(usersTable.email, "admin@figure8.com"));
-  if (existingAdmin.length === 0) {
-    console.log("Creating admin user...");
-    const hashedPassword = await bcrypt.hash("figure8admin", 12);
-    await db.insert(usersTable).values({
-      email: "admin@figure8.com",
-      passwordHash: hashedPassword,
-      name: "Figure 8 Admin",
-      isAdmin: true,
-    });
-    console.log("Admin user created: admin@figure8.com / figure8admin");
+  const adminEmail = process.env.ADMIN_EMAIL;
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  if (!adminEmail || !adminPassword) {
+    console.warn("ADMIN_EMAIL or ADMIN_PASSWORD not set — skipping admin seed");
   } else {
-    console.log("Admin user already exists, skipping");
+    const existingAdmin = await db.select().from(usersTable).where(eq(usersTable.email, adminEmail));
+    if (existingAdmin.length === 0) {
+      console.log("Creating admin user...");
+      const hashedPassword = await bcrypt.hash(adminPassword, 12);
+      await db.insert(usersTable).values({
+        email: adminEmail,
+        passwordHash: hashedPassword,
+        name: "Figure 8 Admin",
+        isAdmin: true,
+      });
+      console.log("Admin user created.");
+    } else {
+      console.log("Admin user already exists, skipping");
+    }
   }
 
   console.log("Seed complete!");
