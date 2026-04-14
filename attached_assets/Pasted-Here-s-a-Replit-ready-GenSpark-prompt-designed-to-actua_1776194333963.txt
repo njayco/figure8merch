@@ -1,0 +1,322 @@
+Here’s a **Replit-ready GenSpark prompt** designed to actually *build* (not just mockup) your Figure 8 website based on your design and references 👇
+
+---
+
+## 🚀 GENSPARK PROMPT (BUILD IN REPLIT)
+
+**Prompt Title:**
+Build a Full-Stack Premium E-Commerce Website “Figure 8” (Shopify-Style)
+
+---
+
+**PROMPT:**
+
+Build a **production-ready full-stack e-commerce web application** called **“Figure 8”**, inspired by the UI/UX, layout, and visual aesthetic of [https://oddritualgolf.com](https://oddritualgolf.com), combined with a **Shopify-style admin dashboard**.
+
+Use the attached design references to match layout, spacing, typography, and color palette exactly.
+
+---
+
+## 🧱 TECH STACK (REQUIRED)
+
+* Frontend: React (Vite) + Tailwind CSS
+* Backend: Node.js + Express
+* Database: MongoDB (or SQLite if simpler for deployment)
+* Auth: JWT-based authentication
+* State Management: Context API or Zustand
+* Payments: Stripe (test mode)
+* Deployment-ready for Replit
+
+---
+
+## 🎨 DESIGN SYSTEM
+
+**Theme:**
+
+* Premium athleisure luxury brand
+* Colors: cream, beige, brown, soft white
+* Typography: elegant serif + modern sans-serif combo
+* UI Style: glassmorphism + soft shadows + minimal layout
+* Smooth animations and hover transitions
+
+---
+
+## 🏠 FRONTEND PAGES
+
+### 1. HOME PAGE (Match provided design exactly)
+
+**Hero Section**
+
+* Full-width background image (use provided main image)
+* Overlay text:
+
+  * “FIGURE 8”
+  * “Premium Athleisure, Designed for Every Body”
+* Buttons:
+
+  * “Shop New Arrivals”
+  * “Our Best Sellers”
+
+---
+
+**Selected Pieces Section**
+
+* Two product cards:
+
+  * Brownin 3 Piece
+  * De la Cream 3 Piece
+* Show:
+
+  * Image
+  * Price
+  * Quantity selector
+  * “Add to Bag” button
+  * ❤️ Favorite button
+
+---
+
+**Split Section**
+
+* Right side: “Power in Every Curve” overlay on image
+* Left side: product cards
+
+---
+
+**Banner**
+
+* “Free Express Shipping on Orders Over $150”
+
+---
+
+**Footer**
+
+* Navigation links
+* Newsletter signup input
+* Payment icons (Visa, Apple Pay, etc.)
+
+---
+
+### 2. SHOP PAGE
+
+* Grid layout (3–4 columns desktop, 1–2 mobile)
+* Filters (optional)
+* Product cards:
+
+  * Image
+  * Name
+  * Price
+  * Add to Cart
+  * Favorite toggle
+
+---
+
+### 3. PRODUCT PAGE
+
+* Large product gallery
+* Product details
+* Size selector
+* Add to Cart
+* Favorite button
+
+---
+
+### 4. AUTH SYSTEM
+
+* Sign Up / Login pages
+* JWT authentication
+* Persistent session
+
+---
+
+### 5. CART + CHECKOUT
+
+* Cart drawer or page
+* Update quantity
+* Remove items
+* Stripe checkout integration (test mode)
+
+---
+
+## 💡 CORE FEATURES
+
+### ⭐ Wishlist System
+
+* Users can favorite items
+* Saved to database per user
+
+---
+
+### 📩 EMAIL POPUP (IMPORTANT)
+
+* Trigger on first visit
+* Modal:
+
+  * “Enjoy 10% OFF your first order”
+  * Email input field
+  * Save email to database
+* Clean dismiss option
+
+---
+
+### 🚚 DELIVERY LOGIC
+
+* If order > $150:
+
+  * Show:
+    “Eligible for Same-Day Delivery (NYC 4 Boroughs Only)”
+
+---
+
+## 🧾 BACKEND API (EXPRESS)
+
+Create REST API routes:
+
+* Auth:
+
+  * POST /api/auth/register
+  * POST /api/auth/login
+
+* Products:
+
+  * GET /api/products
+  * GET /api/products/:id
+  * POST /api/products (admin)
+
+* Cart:
+
+  * GET /api/cart
+  * POST /api/cart
+
+* Wishlist:
+
+  * POST /api/wishlist
+  * GET /api/wishlist
+
+* Orders:
+
+  * POST /api/orders
+  * GET /api/orders
+
+* Email Capture:
+
+  * POST /api/email-signup
+
+---
+
+## 🧑‍💼 ADMIN DASHBOARD (SHOPIFY-STYLE)
+
+Create a protected route `/admin` with:
+
+### Sidebar Navigation:
+
+* Dashboard
+* Orders
+* Products
+* Customers
+
+---
+
+### Features:
+
+* View all orders
+* Add/edit/delete products
+* Upload product images
+* View customers
+* Basic analytics (total sales, orders)
+
+---
+
+## 📄 STATIC CONTENT PAGES
+
+### About / FAQ Page
+
+Include:
+
+**Care Instructions**
+
+* Gentle wash
+* Air dry or dry clean
+
+---
+
+**Same-Day Delivery**
+
+* Orders over $150
+* NYC 4 boroughs only
+
+---
+
+**Contact**
+
+* Email: [F8merch@gmail.com](mailto:F8merch@gmail.com)
+* Text: 786-967-9149
+
+---
+
+### FAQ
+
+**Returns**
+
+* Contact within 1–3 days
+* Return within 5 days
+* Store credit (expires 365 days)
+* Customer pays shipping
+
+---
+
+**Shipping**
+
+* Processing: 2–5 days
+* Delivery: 3–4 days
+
+---
+
+**Tracking**
+
+* Email sent with tracking link
+
+---
+
+## ⚙️ UX REQUIREMENTS
+
+* Sticky navbar
+* Mobile responsive
+* Smooth scrolling
+* Loading skeletons
+* Clean animations
+* Fast performance
+
+---
+
+## 📦 FINAL OUTPUT
+
+* Fully functional Replit project
+* Clean folder structure:
+
+  * /client (React frontend)
+  * /server (Express backend)
+* Environment variables setup (.env)
+* README with setup instructions
+
+---
+
+## 🎯 GOAL
+
+Deliver a **fully functional, visually premium e-commerce platform** that looks like a high-end Shopify brand and matches the provided Figure 8 design references.
+
+---
+
+## 🔥 (Optional Upgrade Prompt Add-On)
+
+If you want to push it even further, add:
+
+> “Incorporate Tesla-style UI transitions and Apple-level polish with micro-interactions, smooth fades, and luxury motion design.”
+
+---
+
+If you want next, I can:
+
+* turn this into a **live deployed Replit app**
+* or generate the **actual React + backend code starter**
+
+Just tell me 👍
