@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
 import MainPhoto from "@assets/Main_Profile_Photo_1776198255495.jpg";
-import ArmPhoto from "@assets/f8arm_1776198255495.JPG";
 
 export function LandingHero() {
   const [scrollY, setScrollY] = useState(0);
@@ -148,54 +147,6 @@ export function LandingHero() {
           </Link>
         </div>
       </nav>
-
-      {/* Center inset panel — f8arm image */}
-      <div
-        style={{
-          position: "absolute",
-          top: "50%",
-          left: "50%",
-          transform: `translate(-50%, -50%) translateY(${-parallaxY * 0.1}px)`,
-          width: "clamp(220px, 28vw, 420px)",
-          height: "clamp(300px, 55vh, 620px)",
-          overflow: "hidden",
-          zIndex: 5,
-          opacity: visible ? 1 : 0,
-          transition: "opacity 1.4s 0.3s ease",
-          boxShadow: "0 0 0 1px rgba(255,255,255,0.08)",
-        }}
-      >
-        <img
-          src={ArmPhoto}
-          alt="Figure 8 — Power in Every Curve"
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            objectPosition: "center",
-          }}
-        />
-        {/* Center panel overlay */}
-        <div style={{
-          position: "absolute",
-          inset: 0,
-          background: "rgba(0,0,0,0.08)",
-        }} />
-        {/* 02 label on center panel */}
-        <div style={{
-          position: "absolute",
-          top: "1.25rem",
-          left: "50%",
-          transform: "translateX(-50%)",
-          fontFamily: "'Georgia', serif",
-          fontStyle: "italic",
-          fontSize: "0.75rem",
-          color: "rgba(255,255,255,0.7)",
-          letterSpacing: "0.1em",
-        }}>
-          02
-        </div>
-      </div>
 
       {/* Left — 01 label */}
       <div
