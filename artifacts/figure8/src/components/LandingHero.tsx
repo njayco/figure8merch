@@ -12,8 +12,9 @@ interface Panel {
   objectPosition: string;
   ctaLine1: string;
   ctaLine2: string;
-  href: string;
+  href?: string;
   external?: boolean;
+  navigatesOnClick?: boolean;
 }
 
 const PANELS: Panel[] = [
@@ -24,7 +25,6 @@ const PANELS: Panel[] = [
     objectPosition: "center top",
     ctaLine1: "Shop Now",
     ctaLine2: "Power in\nEvery Curve",
-    href: "/shop",
   },
   {
     id: 2,
@@ -34,6 +34,7 @@ const PANELS: Panel[] = [
     ctaLine1: "About Us",
     ctaLine2: "Designed for\nEvery Body",
     href: "/about",
+    navigatesOnClick: true,
   },
   {
     id: 3,
@@ -42,7 +43,6 @@ const PANELS: Panel[] = [
     objectPosition: "center top",
     ctaLine1: "New Arrivals",
     ctaLine2: "Move in Every\nDirection",
-    href: "/shop",
   },
   {
     id: 4,
@@ -53,6 +53,7 @@ const PANELS: Panel[] = [
     ctaLine2: "Follow Us on\nInstagram",
     href: "https://www.instagram.com",
     external: true,
+    navigatesOnClick: true,
   },
 ];
 
@@ -125,15 +126,26 @@ export function LandingHero() {
     }
   };
 
-  const handleClick = (panel: Panel) => {
-    if (panel.external) {
+  const handleClick = (panel: Panel, idx: number) => {
+    if (!panel.navigatesOnClick) {
+      handleHover(idx);
+      return;
+    }
+    if (panel.external && panel.href) {
       window.open(panel.href, "_blank", "noopener,noreferrer");
-    } else {
+    } else if (panel.href) {
       navigate(panel.href);
     }
   };
 
-  const handleCtaClick = () => handleClick(PANELS[activePanel]);
+  const handleCtaClick = () => {
+    const panel = PANELS[activePanel];
+    if (panel.external && panel.href) {
+      window.open(panel.href, "_blank", "noopener,noreferrer");
+    } else if (panel.href) {
+      navigate(panel.href);
+    }
+  };
 
   const parallaxY = scrollY * 0.3;
   const currentPanel = PANELS[activePanel];
@@ -307,7 +319,7 @@ export function LandingHero() {
 
             {/* Number button */}
             <button
-              onClick={() => handleClick(panel)}
+              onClick={() => handleClick(panel, idx)}
               onMouseEnter={() => handleHover(idx)}
               onMouseLeave={handleLeave}
               style={{
