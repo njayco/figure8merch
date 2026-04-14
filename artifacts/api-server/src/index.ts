@@ -1,5 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { initAdmin } from "./lib/initAdmin";
 
 const rawPort = process.env["PORT"];
 
@@ -14,6 +15,9 @@ const port = Number(rawPort);
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
+
+// Ensure admin user exists with current credentials from environment secrets
+await initAdmin();
 
 app.listen(port, (err) => {
   if (err) {
