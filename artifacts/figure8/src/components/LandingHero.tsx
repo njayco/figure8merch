@@ -1,12 +1,66 @@
-import { useEffect, useRef, useState } from "react";
-import { Link } from "wouter";
-import MainPhoto from "@assets/Main_Profile_Photo_1776198255495.jpg";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { Link, useLocation } from "wouter";
+import MainPhoto from "@assets/Main_Profile_Photo_1776199292804.jpg";
+import ArmPhoto from "@assets/f8arm_1776199292804.JPG";
+
+interface Panel {
+  id: number;
+  label: string;
+  image: string;
+  objectPosition: string;
+  ctaLine1: string;
+  ctaLine2: string;
+  href: string;
+  external?: boolean;
+}
+
+const PANELS: Panel[] = [
+  {
+    id: 1,
+    label: "01",
+    image: MainPhoto,
+    objectPosition: "center top",
+    ctaLine1: "Shop Now",
+    ctaLine2: "Power in\nEvery Curve",
+    href: "/shop",
+  },
+  {
+    id: 2,
+    label: "02",
+    image: ArmPhoto,
+    objectPosition: "center center",
+    ctaLine1: "About Us",
+    ctaLine2: "Designed for\nEvery Body",
+    href: "/about",
+  },
+  {
+    id: 3,
+    label: "03",
+    image: MainPhoto,
+    objectPosition: "center bottom",
+    ctaLine1: "Community",
+    ctaLine2: "Follow Us on\nInstagram",
+    href: "https://www.instagram.com",
+    external: true,
+  },
+];
+
+const PANEL_POSITIONS = [
+  { left: "2rem", right: undefined },
+  { left: "33%", right: undefined },
+  { left: undefined, right: "4rem" },
+];
 
 export function LandingHero() {
+  const [activePanel, setActivePanel] = useState(0); // index into PANELS
+  const [hoveredPanel, setHoveredPanel] = useState<number | null>(null);
+  const [ctaVisible, setCtaVisible] = useState(true);
   const [scrollY, setScrollY] = useState(0);
   const [progress, setProgress] = useState(0);
-  const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const [, navigate] = useLocation();
+  const ctaFadeRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setVisible(true), 100);
@@ -33,41 +87,69 @@ export function LandingHero() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  const handlePanelSelect = useCallback((idx: number) => {
+    if (idx === activePanel) return;
+    // Fade out CTA, switch panel, fade in
+    setCtaVisible(false);
+    if (ctaFadeRef.current) clearTimeout(ctaFadeRef.current);
+    ctaFadeRef.current = setTimeout(() => {
+      setActivePanel(idx);
+      setCtaVisible(true);
+    }, 280);
+  }, [activePanel]);
+
+  const handleCtaClick = () => {
+    const panel = PANELS[activePanel];
+    if (panel.external) {
+      window.open(panel.href, "_blank", "noopener,noreferrer");
+    } else {
+      navigate(panel.href);
+    }
+  };
+
   const parallaxY = scrollY * 0.3;
+  const currentPanel = PANELS[activePanel];
 
   return (
     <section
       ref={ref}
       style={{ height: "100vh", position: "relative", overflow: "hidden", background: "#0d0806" }}
     >
-      {/* Background — Main Photo with parallax */}
-      <div
-        style={{
-          position: "absolute",
-          inset: "-10% 0",
-          transform: `translateY(${parallaxY}px)`,
-          willChange: "transform",
-        }}
-      >
-        <img
-          src={MainPhoto}
-          alt="Figure 8 Collection"
+      {/* Background images — all rendered, crossfade via opacity */}
+      {PANELS.map((panel, idx) => (
+        <div
+          key={panel.id}
           style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            objectPosition: "center top",
-            opacity: visible ? 1 : 0,
-            transition: "opacity 1.2s ease",
+            position: "absolute",
+            inset: "-10% 0",
+            transform: `translateY(${parallaxY}px)`,
+            willChange: "transform",
+            opacity: idx === activePanel ? 1 : 0,
+            transition: "opacity 0.85s cubic-bezier(0.4, 0, 0.2, 1)",
+            zIndex: idx === activePanel ? 1 : 0,
           }}
-        />
-      </div>
+        >
+          <img
+            src={panel.image}
+            alt={`Figure 8 — Panel ${panel.label}`}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              objectPosition: panel.objectPosition,
+              opacity: visible ? 1 : 0,
+              transition: "opacity 1.2s ease",
+            }}
+          />
+        </div>
+      ))}
 
       {/* Dark gradient overlay */}
       <div style={{
         position: "absolute",
         inset: 0,
-        background: "linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.1) 40%, rgba(0,0,0,0.55) 100%)",
+        background: "linear-gradient(to bottom, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.08) 40%, rgba(0,0,0,0.62) 100%)",
+        zIndex: 2,
       }} />
 
       {/* Top thin progress bar */}
@@ -104,7 +186,6 @@ export function LandingHero() {
         transform: visible ? "translateY(0)" : "translateY(-10px)",
         transition: "opacity 0.8s 0.4s ease, transform 0.8s 0.4s ease",
       }}>
-        {/* Logo */}
         <div style={{
           fontFamily: "'Georgia', 'Times New Roman', serif",
           fontStyle: "italic",
@@ -116,8 +197,6 @@ export function LandingHero() {
         }}>
           figure 8.
         </div>
-
-        {/* Nav links */}
         <div style={{ display: "flex", gap: "2.5rem", alignItems: "center" }}>
           <Link href="/shop">
             <span style={{
@@ -148,47 +227,85 @@ export function LandingHero() {
         </div>
       </nav>
 
-      {/* Left — 01 label */}
-      <div
-        style={{
-          position: "absolute",
-          left: "2rem",
-          top: "50%",
-          transform: "translateY(-50%)",
-          zIndex: 10,
-          opacity: visible ? 1 : 0,
-          transition: "opacity 0.8s 0.6s ease",
-        }}
-      >
-        <span style={{
-          fontFamily: "'Georgia', serif",
-          fontStyle: "italic",
-          fontSize: "0.8rem",
-          color: "rgba(255,255,255,0.6)",
-          letterSpacing: "0.1em",
-        }}>01</span>
-      </div>
+      {/* Panel number selectors */}
+      {PANELS.map((panel, idx) => {
+        const pos = PANEL_POSITIONS[idx];
+        const isActive = idx === activePanel;
+        const isHovered = hoveredPanel === idx;
 
-      {/* Right — 03 label */}
-      <div
-        style={{
-          position: "absolute",
-          right: "4rem",
-          top: "50%",
-          transform: "translateY(-50%)",
-          zIndex: 10,
-          opacity: visible ? 1 : 0,
-          transition: "opacity 0.8s 0.7s ease",
-        }}
-      >
-        <span style={{
-          fontFamily: "'Georgia', serif",
-          fontStyle: "italic",
-          fontSize: "0.8rem",
-          color: "rgba(255,255,255,0.6)",
-          letterSpacing: "0.1em",
-        }}>03</span>
-      </div>
+        return (
+          <div
+            key={panel.id}
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: pos.left,
+              right: pos.right,
+              transform: "translateY(-50%)",
+              zIndex: 15,
+              opacity: visible ? 1 : 0,
+              transition: `opacity 0.8s ${0.5 + idx * 0.1}s ease`,
+            }}
+          >
+            {/* Thumbnail preview — floats above the number when hovered */}
+            <div
+              style={{
+                position: "absolute",
+                bottom: "calc(100% + 1rem)",
+                left: idx === 2 ? "auto" : "50%",
+                right: idx === 2 ? "0" : "auto",
+                transform: idx === 2 ? "none" : "translateX(-50%)",
+                width: "90px",
+                height: "115px",
+                overflow: "hidden",
+                opacity: isHovered && !isActive ? 1 : 0,
+                pointerEvents: "none",
+                transition: "opacity 0.2s ease",
+                boxShadow: "0 4px 24px rgba(0,0,0,0.5)",
+                border: "1px solid rgba(255,255,255,0.15)",
+              }}
+            >
+              <img
+                src={panel.image}
+                alt={`Preview ${panel.label}`}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  objectPosition: panel.objectPosition,
+                }}
+              />
+            </div>
+
+            {/* The number button */}
+            <button
+              onClick={() => handlePanelSelect(idx)}
+              onMouseEnter={() => setHoveredPanel(idx)}
+              onMouseLeave={() => setHoveredPanel(null)}
+              style={{
+                background: "none",
+                border: "none",
+                padding: "0.5rem",
+                cursor: "pointer",
+                fontFamily: "'Georgia', serif",
+                fontStyle: "italic",
+                fontSize: isActive ? "1rem" : "0.8rem",
+                color: isActive
+                  ? "rgba(255,255,255,1)"
+                  : isHovered
+                  ? "rgba(255,255,255,0.75)"
+                  : "rgba(255,255,255,0.4)",
+                letterSpacing: "0.1em",
+                transition: "color 0.25s ease, font-size 0.25s ease",
+                display: "block",
+                lineHeight: 1,
+              }}
+            >
+              {panel.label}
+            </button>
+          </div>
+        );
+      })}
 
       {/* Far right — Scroll label (rotated) */}
       <div
@@ -213,7 +330,7 @@ export function LandingHero() {
         }}>Scroll</span>
       </div>
 
-      {/* Bottom-left — Main CTA text */}
+      {/* Bottom-left — Dynamic CTA text */}
       <div
         style={{
           position: "absolute",
@@ -225,9 +342,12 @@ export function LandingHero() {
           transition: "opacity 0.9s 0.5s ease, transform 0.9s 0.5s ease",
         }}
       >
-        <Link href="/shop">
-          <div style={{ cursor: "pointer" }}>
-            <p style={{
+        <div
+          onClick={handleCtaClick}
+          style={{ cursor: "pointer" }}
+        >
+          <p
+            style={{
               fontFamily: "sans-serif",
               fontSize: "clamp(0.65rem, 1.2vw, 0.75rem)",
               fontWeight: 600,
@@ -235,10 +355,14 @@ export function LandingHero() {
               textTransform: "uppercase",
               color: "rgba(255,255,255,0.75)",
               marginBottom: "0.35rem",
-            }}>
-              Shop Now
-            </p>
-            <h2 style={{
+              opacity: ctaVisible ? 1 : 0,
+              transition: "opacity 0.28s ease",
+            }}
+          >
+            {currentPanel.ctaLine1}
+          </p>
+          <h2
+            style={{
               fontFamily: "sans-serif",
               fontSize: "clamp(2.2rem, 5.5vw, 4.5rem)",
               fontWeight: 800,
@@ -247,14 +371,17 @@ export function LandingHero() {
               textTransform: "uppercase",
               color: "#fff",
               margin: 0,
-            }}>
-              Power in<br />Every Curve
-            </h2>
-          </div>
-        </Link>
+              whiteSpace: "pre-line",
+              opacity: ctaVisible ? 1 : 0,
+              transition: "opacity 0.28s ease",
+            }}
+          >
+            {currentPanel.ctaLine2}
+          </h2>
+        </div>
       </div>
 
-      {/* Scroll indicator — animated chevron */}
+      {/* Scroll indicator */}
       <div
         style={{
           position: "absolute",
@@ -267,7 +394,6 @@ export function LandingHero() {
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          gap: "4px",
         }}
       >
         <div style={{
