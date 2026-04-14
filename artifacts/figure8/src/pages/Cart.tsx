@@ -23,7 +23,7 @@ export function Cart() {
   const handleUpdateQuantity = (productId: number, size: string, newQuantity: number) => {
     if (newQuantity < 1) return;
     updateCartItem.mutate(
-      { productId, data: { quantity: newQuantity, size } },
+      { productId, size, data: { quantity: newQuantity } },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetCartQueryKey() });
@@ -32,9 +32,9 @@ export function Cart() {
     );
   };
 
-  const handleRemove = (productId: number) => {
+  const handleRemove = (productId: number, size: string) => {
     removeFromCart.mutate(
-      { productId },
+      { productId, size },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetCartQueryKey() });
@@ -127,7 +127,7 @@ export function Cart() {
                     </div>
 
                     <button 
-                      onClick={() => handleRemove(item.product.id)}
+                      onClick={() => handleRemove(item.product.id, item.size)}
                       disabled={removeFromCart.isPending}
                       className="text-sm text-muted-foreground hover:text-destructive flex items-center uppercase tracking-widest transition-colors font-medium"
                     >

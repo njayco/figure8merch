@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetAdminStats,
@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Users, ShoppingBag, DollarSign, Package, Plus, Pencil, Trash2 } from "lucide-react";
+import { Users, ShoppingBag, DollarSign, Package, Plus, Pencil, Trash2, Upload } from "lucide-react";
 import { format } from "date-fns";
 
 interface ProductFormData {
@@ -59,6 +59,9 @@ function ProductFormDialog({
   onDone: () => void;
 }) {
   const [form, setForm] = useState<ProductFormData>(initialData ?? emptyForm);
+  const [imageMode, setImageMode] = useState<"url" | "upload">("url");
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const createProduct = useCreateProduct();
@@ -68,6 +71,27 @@ function ProductFormDialog({
 
   const handleChange = (key: keyof ProductFormData, value: string | boolean) => {
     setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleFileUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+      const res = await fetch("/api/upload/image", {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+      if (!res.ok) throw new Error("Upload failed");
+      const { url } = await res.json() as { url: string };
+      handleChange("imageUrl", url);
+      toast({ title: "Image uploaded successfully" });
+    } catch {
+      toast({ variant: "destructive", title: "Image upload failed" });
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleSubmit = () => {
@@ -143,8 +167,57 @@ function ProductFormDialog({
             </div>
           </div>
           <div className="grid gap-1.5">
-            <Label>Image URL *</Label>
-            <Input value={form.imageUrl} onChange={(e) => handleChange("imageUrl", e.target.value)} placeholder="https://..." />
+            <div className="flex items-center justify-between">
+              <Label>Product Image *</Label>
+              <div className="flex rounded-md border text-xs overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setImageMode("url")}
+                  className={`px-2 py-1 ${imageMode === "url" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+                >
+                  URL
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setImageMode("upload")}
+                  className={`px-2 py-1 ${imageMode === "upload" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+                >
+                  Upload
+                </button>
+              </div>
+            </div>
+            {imageMode === "url" ? (
+              <Input value={form.imageUrl} onChange={(e) => handleChange("imageUrl", e.target.value)} placeholder="https://..." />
+            ) : (
+              <div className="space-y-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFileUpload(file);
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full rounded-none"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  {uploading ? "Uploading..." : "Choose Image File"}
+                </Button>
+                {form.imageUrl && (
+                  <p className="text-xs text-muted-foreground truncate">Uploaded: {form.imageUrl}</p>
+                )}
+              </div>
+            )}
+            {form.imageUrl && (
+              <img src={form.imageUrl} alt="Preview" className="h-20 w-20 object-cover rounded border" />
+            )}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-1.5">

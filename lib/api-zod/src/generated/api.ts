@@ -236,7 +236,6 @@ export const UpdateCartItemParams = zod.object({
 
 export const UpdateCartItemBody = zod.object({
   quantity: zod.number(),
-  size: zod.string().optional(),
 });
 
 export const UpdateCartItemResponse = zod.object({

@@ -53,7 +53,13 @@ router.post("/cart", requireAuth, async (req: AuthRequest, res): Promise<void> =
   const existing = await db
     .select()
     .from(cartItemsTable)
-    .where(and(eq(cartItemsTable.userId, req.userId!), eq(cartItemsTable.productId, productId), eq(cartItemsTable.size, size)));
+    .where(
+      and(
+        eq(cartItemsTable.userId, req.userId!),
+        eq(cartItemsTable.productId, productId),
+        eq(cartItemsTable.size, size)
+      )
+    );
 
   if (existing.length > 0) {
     await db
@@ -68,9 +74,10 @@ router.post("/cart", requireAuth, async (req: AuthRequest, res): Promise<void> =
   res.json(cart);
 });
 
-router.put("/cart/:productId", requireAuth, async (req: AuthRequest, res): Promise<void> => {
+router.put("/cart/:productId/:size", requireAuth, async (req: AuthRequest, res): Promise<void> => {
   const raw = Array.isArray(req.params.productId) ? req.params.productId[0] : req.params.productId;
   const productId = parseInt(raw, 10);
+  const size = Array.isArray(req.params.size) ? req.params.size[0] : req.params.size;
 
   const parsed = UpdateCartItemBody.safeParse(req.body);
   if (!parsed.success) {
@@ -78,17 +85,23 @@ router.put("/cart/:productId", requireAuth, async (req: AuthRequest, res): Promi
     return;
   }
 
-  const { quantity, size } = parsed.data;
+  const { quantity } = parsed.data;
 
   if (quantity <= 0) {
     await db.delete(cartItemsTable).where(
-      and(eq(cartItemsTable.userId, req.userId!), eq(cartItemsTable.productId, productId))
+      and(
+        eq(cartItemsTable.userId, req.userId!),
+        eq(cartItemsTable.productId, productId),
+        eq(cartItemsTable.size, size)
+      )
     );
   } else {
-    const updateData: Partial<{ quantity: number; size: string }> = { quantity };
-    if (size !== undefined) updateData.size = size;
-    await db.update(cartItemsTable).set(updateData).where(
-      and(eq(cartItemsTable.userId, req.userId!), eq(cartItemsTable.productId, productId))
+    await db.update(cartItemsTable).set({ quantity }).where(
+      and(
+        eq(cartItemsTable.userId, req.userId!),
+        eq(cartItemsTable.productId, productId),
+        eq(cartItemsTable.size, size)
+      )
     );
   }
 
@@ -96,12 +109,17 @@ router.put("/cart/:productId", requireAuth, async (req: AuthRequest, res): Promi
   res.json(cart);
 });
 
-router.delete("/cart/:productId", requireAuth, async (req: AuthRequest, res): Promise<void> => {
+router.delete("/cart/:productId/:size", requireAuth, async (req: AuthRequest, res): Promise<void> => {
   const raw = Array.isArray(req.params.productId) ? req.params.productId[0] : req.params.productId;
   const productId = parseInt(raw, 10);
+  const size = Array.isArray(req.params.size) ? req.params.size[0] : req.params.size;
 
   await db.delete(cartItemsTable).where(
-    and(eq(cartItemsTable.userId, req.userId!), eq(cartItemsTable.productId, productId))
+    and(
+      eq(cartItemsTable.userId, req.userId!),
+      eq(cartItemsTable.productId, productId),
+      eq(cartItemsTable.size, size)
+    )
   );
 
   const cart = await getCartForUser(req.userId!);
