@@ -23,6 +23,7 @@ import { Admin } from "@/pages/Admin";
 import { Login } from "@/pages/Login";
 import { Register } from "@/pages/Register";
 import { About } from "@/pages/About";
+import { Community } from "@/pages/Community";
 
 const queryClient = new QueryClient();
 
@@ -51,6 +52,7 @@ function Router() {
           <Route path="/login" component={Login} />
           <Route path="/register" component={Register} />
           <Route path="/about" component={About} />
+          <Route path="/community" component={Community} />
           <Route path="/admin">
             {() => (
               <ProtectedRoute adminOnly>

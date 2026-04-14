@@ -51,8 +51,7 @@ const PANELS: Panel[] = [
     objectPosition: "center center",
     ctaLine1: "Community",
     ctaLine2: "Follow Us on\nInstagram",
-    href: "https://www.instagram.com",
-    external: true,
+    href: "/community",
     navigatesOnClick: true,
   },
 ];
