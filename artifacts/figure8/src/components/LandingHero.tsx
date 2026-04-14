@@ -118,6 +118,11 @@ export function LandingHero() {
 
   const handleLeave = () => {
     setHoveredPanel(null);
+    if (ctaFadeRef.current) {
+      clearTimeout(ctaFadeRef.current);
+      ctaFadeRef.current = null;
+      setCtaVisible(true);
+    }
   };
 
   const handleClick = (panel: Panel) => {
