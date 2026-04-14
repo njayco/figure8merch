@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Menu, X, ShoppingBag, User as UserIcon, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,9 +8,19 @@ import { cn } from "@/lib/utils";
 
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const [location] = useLocation();
   const { user, logout } = useAuth();
   const { data: cart } = useGetCart({ query: { enabled: !!user, queryKey: getGetCartQueryKey() } });
+
+  const isHome = location === "/";
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > window.innerHeight * 0.7);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   const navLinks = [
     { name: "New Arrivals", href: "/shop?category=new" },
@@ -20,7 +30,10 @@ export function Navbar() {
   ];
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border bg-background/80 backdrop-blur-md">
+    <header className={cn(
+      "sticky top-0 z-50 w-full border-b border-border bg-background/80 backdrop-blur-md transition-all duration-300",
+      isHome && !scrolled ? "opacity-0 pointer-events-none -translate-y-full" : "opacity-100 translate-y-0"
+    )}>
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         {/* Mobile Menu Toggle */}
         <button

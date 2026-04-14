@@ -2,6 +2,7 @@ import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useState, useCallback } from "react";
 import NotFound from "@/pages/not-found";
 
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -9,6 +10,7 @@ import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { EmailModal } from "@/components/EmailModal";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { SplashScreen } from "@/components/SplashScreen";
 
 import { Home } from "@/pages/Home";
 import { Shop } from "@/pages/Shop";
@@ -23,6 +25,14 @@ import { Register } from "@/pages/Register";
 import { About } from "@/pages/About";
 
 const queryClient = new QueryClient();
+
+const hasSeenSplash = () => {
+  try {
+    return sessionStorage.getItem("f8_splash_seen") === "true";
+  } catch {
+    return false;
+  }
+};
 
 function Router() {
   return (
@@ -57,11 +67,22 @@ function Router() {
 }
 
 function App() {
+  const [showSplash, setShowSplash] = useState(() => !hasSeenSplash());
+
+  const handleSplashComplete = useCallback(() => {
+    try {
+      sessionStorage.setItem("f8_splash_seen", "true");
+    } catch {
+    }
+    setShowSplash(false);
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <TooltipProvider>
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
             <Router />
           </WouterRouter>
           <Toaster />
