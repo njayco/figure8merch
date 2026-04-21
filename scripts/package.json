@@ -5,7 +5,11 @@
   "type": "module",
   "scripts": {
     "hello": "tsx ./src/hello.ts",
+    "stripe-migrate": "tsx ./src/run-stripe-migrations.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "stripe-replit-sync": "^1.0.0"
   },
   "devDependencies": {
     "@types/node": "catalog:",
