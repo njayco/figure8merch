@@ -1,6 +1,8 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { initAdmin } from "./lib/initAdmin";
+import { runMigrations } from 'stripe-replit-sync';
+import { getStripeSync, resetStripeSync } from "./lib/stripeClient";
 
 const rawPort = process.env["PORT"];
 
@@ -16,8 +18,41 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
+async function initStripe() {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    logger.warn("DATABASE_URL not set — skipping Stripe init");
+    return;
+  }
+
+  try {
+    logger.info("Initializing Stripe schema...");
+    await runMigrations({ databaseUrl, schema: 'stripe' });
+    logger.info("Stripe schema ready");
+
+    // Reset singleton so getStripeSync() picks up freshly migrated tables
+    resetStripeSync();
+    const stripeSync = await getStripeSync();
+
+    const webhookBaseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
+    await stripeSync.findOrCreateManagedWebhook(`${webhookBaseUrl}/api/stripe/webhook`);
+    logger.info("Stripe webhook configured");
+
+    // Sync existing data in the background (don't block startup)
+    stripeSync.syncBackfill()
+      .then(() => logger.info("Stripe data backfill complete"))
+      .catch((err: any) => logger.error({ err }, "Stripe backfill error"));
+  } catch (err) {
+    logger.error({ err }, "Failed to initialize Stripe");
+    // Don't throw — let the server start even if Stripe init fails
+  }
+}
+
 // Ensure admin user exists with current credentials from environment secrets
 await initAdmin();
+
+// Initialize Stripe schema and sync
+await initStripe();
 
 app.listen(port, (err) => {
   if (err) {

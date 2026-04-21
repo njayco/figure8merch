@@ -26,7 +26,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - Shop with category filters (sidebar) and product grid
 - Product detail page with size selection, add to cart, wishlist toggle
 - Shopping cart with quantity update, remove, NYC same-day delivery message (orders > $150)
-- Checkout form (test mode - no real Stripe)
+- Checkout with real Stripe Payments (Stripe Elements / PaymentIntent flow)
 - JWT Auth (login/register/logout)
 - Wishlist (heart icon on product cards)
 - Order history
