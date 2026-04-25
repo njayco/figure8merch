@@ -23,10 +23,9 @@ export function Navbar() {
   }, []);
 
   const navLinks = [
-    { name: "New Arrivals", href: "/shop?category=new" },
-    { name: "Collections", href: "/shop" },
-    { name: "Athleisure", href: "/shop?category=athleisure" },
-    { name: "Our Story", href: "/about" },
+    { name: "Home", href: "/" },
+    { name: "Shop", href: "/shop" },
+    { name: "Contact Us", href: "/contact" },
   ];
 
   return (

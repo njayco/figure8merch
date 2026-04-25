@@ -176,6 +176,7 @@ export function LandingHero() {
           <img
             src={panel.image}
             alt={`Figure 8 — Panel ${panel.label}`}
+            className="hero-panel-img"
             style={{
               width: "100%",
               height: "100%",
@@ -233,11 +234,9 @@ export function LandingHero() {
         {/* Left: nav links */}
         <div style={{ display: "flex", gap: "2rem", alignItems: "center", flex: 1 }}>
           {[
-            { label: "New Arrivals", href: "/shop?category=new" },
-            { label: "Collections", href: "/shop" },
-            { label: "Athleisure", href: "/shop?category=athleisure" },
-            { label: "Our Story", href: "/about" },
-            { label: "Community", href: "/community" },
+            { label: "Home", href: "/" },
+            { label: "Shop", href: "/shop" },
+            { label: "Contact Us", href: "/contact" },
           ].map(link => (
             <Link key={link.label} href={link.href}>
               <span style={{
@@ -482,6 +481,12 @@ export function LandingHero() {
           @keyframes scrollPulse {
             0%, 100% { opacity: 0.3; transform: scaleY(0.8); }
             50% { opacity: 0.9; transform: scaleY(1); }
+          }
+          @media (max-width: 767px) {
+            .hero-panel-img {
+              object-fit: contain !important;
+              object-position: center center !important;
+            }
           }
         `}</style>
       </div>
