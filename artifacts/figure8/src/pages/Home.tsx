@@ -13,14 +13,26 @@ export function Home() {
 
   return (
     <main className="w-full flex flex-col">
+      {/* Shipping Banner — sliding marquee at top of page */}
+      <div className="bg-primary text-primary-foreground py-2 text-sm font-medium tracking-wide overflow-hidden whitespace-nowrap">
+        <div className="inline-flex items-center gap-2 shipping-marquee">
+          <Truck className="h-4 w-4 shrink-0" />
+          <span>Free Express Shipping on NYC Orders over $150</span>
+        </div>
+        <style>{`
+          .shipping-marquee {
+            animation: shippingSlide 18s linear infinite;
+            padding-left: 100%;
+          }
+          @keyframes shippingSlide {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+          }
+        `}</style>
+      </div>
+
       {/* Full-screen editorial landing hero */}
       <LandingHero />
-
-      {/* Shipping Banner */}
-      <div className="bg-primary text-primary-foreground py-2 px-4 text-center text-sm font-medium tracking-wide flex items-center justify-center gap-2">
-        <Truck className="h-4 w-4" />
-        <span>Free Express Shipping on NYC Orders over $150</span>
-      </div>
 
       {/* Featured Pieces */}
       <section className="py-24 px-4 container mx-auto">

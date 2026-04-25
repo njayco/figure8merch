@@ -157,12 +157,14 @@ export function LandingHero() {
   return (
     <section
       ref={ref}
+      className="hero-section"
       style={{ height: "100vh", position: "relative", overflow: "hidden", background: "#0d0806" }}
     >
       {/* All 4 background images — crossfade via opacity */}
       {PANELS.map((panel, idx) => (
         <div
           key={panel.id}
+          className="hero-bg-layer"
           style={{
             position: "absolute",
             inset: "-10% 0",
@@ -414,6 +416,7 @@ export function LandingHero() {
 
       {/* Bottom-left CTA */}
       <div
+        className="hero-cta"
         style={{
           position: "absolute",
           bottom: "2.5rem",
@@ -458,6 +461,7 @@ export function LandingHero() {
 
       {/* Scroll indicator */}
       <div
+        className="hero-scroll-indicator"
         style={{
           position: "absolute",
           bottom: "2rem",
@@ -483,9 +487,25 @@ export function LandingHero() {
             50% { opacity: 0.9; transform: scaleY(1); }
           }
           @media (max-width: 767px) {
+            .hero-section {
+              height: auto !important;
+              aspect-ratio: 4 / 5;
+            }
+            .hero-bg-layer {
+              inset: 0 !important;
+              transform: none !important;
+            }
             .hero-panel-img {
-              object-fit: contain !important;
-              object-position: center center !important;
+              object-fit: cover !important;
+              object-position: center top !important;
+            }
+            .hero-cta {
+              bottom: 1.25rem !important;
+              left: 1.25rem !important;
+              right: 1.25rem !important;
+            }
+            .hero-scroll-indicator {
+              display: none !important;
             }
           }
         `}</style>
