@@ -8,6 +8,40 @@ import { getUncachableStripeClient } from "../lib/stripeClient";
 
 const router: IRouter = Router();
 
+const STRIPE_REVENUE_CACHE_TTL_MS = 60_000;
+let stripeRevenueCache: { value: number; expiresAt: number } | null = null;
+
+async function fetchStripeRevenue(): Promise<number> {
+  const now = Date.now();
+  if (stripeRevenueCache && stripeRevenueCache.expiresAt > now) {
+    return stripeRevenueCache.value;
+  }
+
+  const stripe = await getUncachableStripeClient();
+  let totalCents = 0;
+  let startingAfter: string | undefined = undefined;
+  const pageSize = 100;
+
+  while (true) {
+    const params: { limit: number; starting_after?: string } = { limit: pageSize };
+    if (startingAfter) params.starting_after = startingAfter;
+    const page = await stripe.paymentIntents.list(params);
+
+    for (const pi of page.data) {
+      if (pi.status === "succeeded") {
+        totalCents += pi.amount_received ?? 0;
+      }
+    }
+
+    if (!page.has_more || page.data.length === 0) break;
+    startingAfter = page.data[page.data.length - 1].id;
+  }
+
+  const revenue = totalCents / 100;
+  stripeRevenueCache = { value: revenue, expiresAt: Date.now() + STRIPE_REVENUE_CACHE_TTL_MS };
+  return revenue;
+}
+
 function toOrderShape(order: typeof ordersTable.$inferSelect) {
   return {
     id: order.id,
@@ -157,14 +191,12 @@ router.get("/admin/stats", requireAdmin, async (_req, res): Promise<void> => {
     createdAt: r.order.createdAt,
   }));
 
-  // Fetch actual revenue from Stripe by summing succeeded payment intents
+  // Fetch actual revenue from Stripe by summing all succeeded payment intents.
+  // Paginates through every page so revenue stays accurate beyond 100 transactions;
+  // result is cached briefly to keep this endpoint responsive.
   let stripeRevenue = 0;
   try {
-    const stripe = await getUncachableStripeClient();
-    const paymentIntents = await stripe.paymentIntents.list({ limit: 100 });
-    stripeRevenue = paymentIntents.data
-      .filter((pi) => pi.status === "succeeded")
-      .reduce((sum, pi) => sum + (pi.amount_received ?? 0), 0) / 100;
+    stripeRevenue = await fetchStripeRevenue();
   } catch {
     stripeRevenue = Number(totalRevenue?.total ?? 0);
   }
