@@ -870,6 +870,14 @@ components:
           enum: [pending, processing, shipped, delivered, cancelled]
         shippingAddress:
           type: string
+        stripePaymentStatus:
+          type: string
+          nullable: true
+          description: Stripe payment intent status (e.g. succeeded, pending, failed)
+        cardLast4:
+          type: string
+          nullable: true
+          description: Last 4 digits of the card used for payment
         createdAt:
           type: string
           format: date-time
@@ -933,6 +941,9 @@ components:
       properties:
         totalRevenue:
           type: number
+        stripeRevenue:
+          type: number
+          description: Total revenue from succeeded Stripe payments
         totalOrders:
           type: integer
         totalCustomers:
@@ -960,6 +971,7 @@ components:
               - totalSold
       required:
         - totalRevenue
+        - stripeRevenue
         - totalOrders
         - totalCustomers
         - totalProducts

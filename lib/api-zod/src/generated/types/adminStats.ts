@@ -10,6 +10,8 @@ import type { AdminStatsTopProductsItem } from "./adminStatsTopProductsItem";
 
 export interface AdminStats {
   totalRevenue: number;
+  /** Total revenue from succeeded Stripe payments */
+  stripeRevenue: number;
   totalOrders: number;
   totalCustomers: number;
   totalProducts: number;

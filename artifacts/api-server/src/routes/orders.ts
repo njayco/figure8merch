@@ -4,6 +4,7 @@ import { eq, desc, sql } from "drizzle-orm";
 import { CreateOrderBody } from "@workspace/api-zod";
 import { requireAuth, requireAdmin, type AuthRequest } from "../middlewares/auth";
 import { getStripeProductSummaries, countActiveStripeProducts } from "../lib/stripeDb";
+import { getUncachableStripeClient } from "../lib/stripeClient";
 
 const router: IRouter = Router();
 
@@ -15,6 +16,8 @@ function toOrderShape(order: typeof ordersTable.$inferSelect) {
     total: Number(order.total),
     status: order.status,
     shippingAddress: order.shippingAddress,
+    stripePaymentStatus: order.stripePaymentStatus ?? null,
+    cardLast4: order.cardLast4 ?? null,
     createdAt: order.createdAt,
   };
 }
@@ -154,8 +157,21 @@ router.get("/admin/stats", requireAdmin, async (_req, res): Promise<void> => {
     createdAt: r.order.createdAt,
   }));
 
+  // Fetch actual revenue from Stripe by summing succeeded payment intents
+  let stripeRevenue = 0;
+  try {
+    const stripe = await getUncachableStripeClient();
+    const paymentIntents = await stripe.paymentIntents.list({ limit: 100 });
+    stripeRevenue = paymentIntents.data
+      .filter((pi) => pi.status === "succeeded")
+      .reduce((sum, pi) => sum + (pi.amount_received ?? 0), 0) / 100;
+  } catch {
+    stripeRevenue = Number(totalRevenue?.total ?? 0);
+  }
+
   res.json({
     totalRevenue: Number(totalRevenue?.total ?? 0),
+    stripeRevenue,
     totalOrders: Number(totalOrders?.count ?? 0),
     totalCustomers: Number(totalCustomers?.count ?? 0),
     totalProducts,

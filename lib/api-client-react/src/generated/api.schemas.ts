@@ -138,6 +138,10 @@ export interface Order {
   total: number;
   status: OrderStatus;
   shippingAddress: string;
+  /** Stripe payment intent status (e.g. succeeded, pending, failed) */
+  stripePaymentStatus?: string | null;
+  /** Last 4 digits of the card used for payment */
+  cardLast4?: string | null;
   createdAt: string;
 }
 
@@ -177,6 +181,8 @@ export type AdminStatsTopProductsItem = {
 
 export interface AdminStats {
   totalRevenue: number;
+  /** Total revenue from succeeded Stripe payments */
+  stripeRevenue: number;
   totalOrders: number;
   totalCustomers: number;
   totalProducts: number;

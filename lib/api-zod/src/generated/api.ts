@@ -369,6 +369,14 @@ export const ListOrdersResponseItem = zod.object({
     "cancelled",
   ]),
   shippingAddress: zod.string(),
+  stripePaymentStatus: zod
+    .string()
+    .nullish()
+    .describe("Stripe payment intent status (e.g. succeeded, pending, failed)"),
+  cardLast4: zod
+    .string()
+    .nullish()
+    .describe("Last 4 digits of the card used for payment"),
   createdAt: zod.coerce.date(),
 });
 export const ListOrdersResponse = zod.array(ListOrdersResponseItem);
@@ -413,6 +421,14 @@ export const GetOrderResponse = zod.object({
     "cancelled",
   ]),
   shippingAddress: zod.string(),
+  stripePaymentStatus: zod
+    .string()
+    .nullish()
+    .describe("Stripe payment intent status (e.g. succeeded, pending, failed)"),
+  cardLast4: zod
+    .string()
+    .nullish()
+    .describe("Last 4 digits of the card used for payment"),
   createdAt: zod.coerce.date(),
 });
 
@@ -456,6 +472,9 @@ export const EmailSignupResponse = zod.object({
  */
 export const GetAdminStatsResponse = zod.object({
   totalRevenue: zod.number(),
+  stripeRevenue: zod
+    .number()
+    .describe("Total revenue from succeeded Stripe payments"),
   totalOrders: zod.number(),
   totalCustomers: zod.number(),
   totalProducts: zod.number(),

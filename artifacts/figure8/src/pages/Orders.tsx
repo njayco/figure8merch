@@ -6,6 +6,33 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 
+function PaymentStatusBadge({ status }: { status: string | null | undefined }) {
+  if (!status) return null;
+
+  const styles: Record<string, string> = {
+    succeeded: "bg-green-100 text-green-800",
+    pending: "bg-yellow-100 text-yellow-800",
+    failed: "bg-red-100 text-red-800",
+    requires_action: "bg-orange-100 text-orange-800",
+  };
+
+  const labels: Record<string, string> = {
+    succeeded: "Payment Successful",
+    pending: "Payment Pending",
+    failed: "Payment Failed",
+    requires_action: "Action Required",
+  };
+
+  const cls = styles[status] ?? "bg-muted text-muted-foreground";
+  const label = labels[status] ?? status;
+
+  return (
+    <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${cls}`}>
+      {label}
+    </span>
+  );
+}
+
 export function Orders() {
   const { user } = useAuth();
   const { data: orders, isLoading } = useListOrders({
@@ -59,12 +86,20 @@ export function Orders() {
                   </div>
                 </div>
               </div>
+
+              <div className="px-6 pt-4 pb-2 flex flex-wrap items-center gap-3">
+                <PaymentStatusBadge status={order.stripePaymentStatus} />
+                {order.cardLast4 && (
+                  <span className="text-sm text-muted-foreground">
+                    Paid with card ending in <span className="font-medium text-foreground">{order.cardLast4}</span>
+                  </span>
+                )}
+              </div>
               
               <div className="p-6 space-y-6">
                 {order.items.map((item: OrderItem, idx: number) => (
                   <div key={idx} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
-                      {/* Using a placeholder square since OrderItem might not have imageUrl in some schemas, but we can display the product name clearly */}
                       <div className="w-16 h-20 bg-muted shrink-0 flex flex-col items-center justify-center border border-border">
                          <span className="text-[10px] uppercase text-muted-foreground text-center">F8</span>
                       </div>

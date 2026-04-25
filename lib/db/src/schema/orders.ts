@@ -18,6 +18,8 @@ export const ordersTable = pgTable("orders", {
   status: text("status").notNull().default("pending"),
   shippingAddress: text("shipping_address").notNull(),
   stripeCheckoutSessionId: text("stripe_checkout_session_id"),
+  stripePaymentStatus: text("stripe_payment_status"),
+  cardLast4: text("card_last4"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   unique("orders_stripe_session_unique").on(t.stripeCheckoutSessionId),

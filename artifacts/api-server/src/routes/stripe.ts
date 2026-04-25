@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import type Stripe from "stripe";
 import { db, usersTable, cartItemsTable, ordersTable, checkoutSnapshotsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
@@ -154,7 +155,9 @@ router.post("/stripe/complete-order", requireAuth, async (req: AuthRequest, res)
     }
 
     const stripe = await getUncachableStripeClient();
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    const session = await stripe.checkout.sessions.retrieve(sessionId, {
+      expand: ["payment_intent.payment_method"],
+    });
 
     if (session.payment_status !== "paid") {
       res.status(400).json({ error: `Payment not completed. Status: ${session.payment_status}` });
@@ -194,6 +197,20 @@ router.post("/stripe/complete-order", requireAuth, async (req: AuthRequest, res)
 
     const total = (session.amount_total ?? 0) / 100;
 
+    // Extract payment details from the expanded payment intent/payment method.
+    // session.payment_intent is string | PaymentIntent; we requested expand so it's an object.
+    const paymentIntent: Stripe.PaymentIntent | null =
+      typeof session.payment_intent === "object" && session.payment_intent !== null
+        ? (session.payment_intent as Stripe.PaymentIntent)
+        : null;
+    const stripePaymentStatus = paymentIntent?.status ?? "succeeded";
+    // payment_method is string | PaymentMethod after expand; cast to expanded type.
+    const paymentMethod: Stripe.PaymentMethod | null =
+      paymentIntent && typeof paymentIntent.payment_method === "object" && paymentIntent.payment_method !== null
+        ? (paymentIntent.payment_method as Stripe.PaymentMethod)
+        : null;
+    const cardLast4 = paymentMethod?.type === "card" ? (paymentMethod.card?.last4 ?? null) : null;
+
     try {
       const [order] = await db.insert(ordersTable).values({
         userId,
@@ -202,6 +219,8 @@ router.post("/stripe/complete-order", requireAuth, async (req: AuthRequest, res)
         status: "confirmed",
         shippingAddress: snapshot.shippingAddress,
         stripeCheckoutSessionId: sessionId,
+        stripePaymentStatus,
+        cardLast4,
       }).returning();
 
       await db.delete(cartItemsTable).where(eq(cartItemsTable.userId, userId));
