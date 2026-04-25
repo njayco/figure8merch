@@ -5,7 +5,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, ShoppingBag, DollarSign, Package, ExternalLink } from "lucide-react";
+import { Users, ShoppingBag, DollarSign, Package, ExternalLink, Info } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { format } from "date-fns";
 
 export function Admin() {
@@ -138,6 +139,34 @@ export function Admin() {
             <p className="text-sm text-muted-foreground mb-4">
               Products are managed directly in the Stripe Dashboard. Changes sync automatically to the shop.
             </p>
+            <Alert className="rounded-none mb-4 bg-muted/30">
+              <Info className="h-4 w-4" />
+              <AlertTitle>Configuring product sizes</AlertTitle>
+              <AlertDescription>
+                <p className="mb-2">
+                  To show a size selector on a product page, add a metadata field to the product in Stripe:
+                </p>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li>
+                    Open the product in the Stripe Dashboard, scroll to <span className="font-medium">Metadata</span>, and add a key named{" "}
+                    <code className="px-1 py-0.5 bg-muted text-foreground rounded text-xs font-mono">sizes</code>.
+                  </li>
+                  <li>
+                    Set the value to a comma-separated list, for example{" "}
+                    <code className="px-1 py-0.5 bg-muted text-foreground rounded text-xs font-mono">XS,S,M,L,XL</code>.
+                  </li>
+                  <li>
+                    Save the product. The size selector will appear on the product page automatically.
+                  </li>
+                </ul>
+                <p className="mt-2">
+                  Other supported metadata fields:{" "}
+                  <code className="px-1 py-0.5 bg-muted text-foreground rounded text-xs font-mono">category</code> and{" "}
+                  <code className="px-1 py-0.5 bg-muted text-foreground rounded text-xs font-mono">featured</code> (set to{" "}
+                  <code className="px-1 py-0.5 bg-muted text-foreground rounded text-xs font-mono">true</code>).
+                </p>
+              </AlertDescription>
+            </Alert>
             <div className="bg-background border border-border">
               <Table>
                 <TableHeader>
@@ -145,8 +174,9 @@ export function Admin() {
                     <TableHead className="uppercase tracking-wider font-bold">Product</TableHead>
                     <TableHead className="uppercase tracking-wider font-bold">Category</TableHead>
                     <TableHead className="uppercase tracking-wider font-bold">Price</TableHead>
+                    <TableHead className="uppercase tracking-wider font-bold">Sizes</TableHead>
                     <TableHead className="uppercase tracking-wider font-bold">Featured</TableHead>
-                    <TableHead className="uppercase tracking-wider font-bold">Stripe ID</TableHead>
+                    <TableHead className="uppercase tracking-wider font-bold">Stripe</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -165,13 +195,31 @@ export function Admin() {
                       </TableCell>
                       <TableCell className="capitalize">{product.category}</TableCell>
                       <TableCell>${product.price.toFixed(2)}</TableCell>
+                      <TableCell>
+                        {product.sizes && product.sizes.length > 0 ? (
+                          <span className="text-sm">{product.sizes.join(", ")}</span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground italic">Not set</span>
+                        )}
+                      </TableCell>
                       <TableCell>{product.isFeatured ? "Yes" : "No"}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground font-mono">{product.id}</TableCell>
+                      <TableCell>
+                        <a
+                          href={`https://dashboard.stripe.com/products/${product.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary font-mono"
+                          title="Open product in Stripe Dashboard"
+                        >
+                          {product.id}
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </TableCell>
                     </TableRow>
                   ))}
                   {(!products || products.length === 0) && (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No products found.</TableCell>
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No products found.</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
