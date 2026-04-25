@@ -3,6 +3,7 @@ import { logger } from "./lib/logger";
 import { initAdmin } from "./lib/initAdmin";
 import { runMigrations } from 'stripe-replit-sync';
 import { getStripeSync, resetStripeSync } from "./lib/stripeClient";
+import { setStripeStatus } from "./lib/stripeStatus";
 
 const rawPort = process.env["PORT"];
 
@@ -22,6 +23,11 @@ async function initStripe() {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {
     logger.warn("DATABASE_URL not set — skipping Stripe init");
+    setStripeStatus("failed", "DATABASE_URL not set");
+    if (process.env.NODE_ENV === "production") {
+      logger.error("Exiting: Stripe cannot initialize without DATABASE_URL in production");
+      process.exit(1);
+    }
     return;
   }
 
@@ -38,13 +44,20 @@ async function initStripe() {
     await stripeSync.findOrCreateManagedWebhook(`${webhookBaseUrl}/api/stripe/webhook`);
     logger.info("Stripe webhook configured");
 
+    setStripeStatus("ready");
+
     // Sync existing data in the background (don't block startup)
     stripeSync.syncBackfill()
       .then(() => logger.info("Stripe data backfill complete"))
       .catch((err: any) => logger.error({ err }, "Stripe backfill error"));
-  } catch (err) {
+  } catch (err: any) {
+    const message = err?.message ?? String(err);
     logger.error({ err }, "Failed to initialize Stripe");
-    // Don't throw — let the server start even if Stripe init fails
+    setStripeStatus("failed", message);
+    if (process.env.NODE_ENV === "production") {
+      logger.error("Exiting: Stripe initialization failed in production");
+      process.exit(1);
+    }
   }
 }
 
