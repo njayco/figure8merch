@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Spinner } from "@/components/ui/spinner";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
+import { ProductImage } from "@/components/ProductImage";
 import { format } from "date-fns";
 import { Check, Package, Truck, Home } from "lucide-react";
 
@@ -241,8 +242,15 @@ export function Orders() {
                 {order.items.map((item: OrderItem, idx: number) => (
                   <div key={idx} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
-                      <div className="w-16 h-20 bg-muted shrink-0 flex flex-col items-center justify-center border border-border">
-                         <span className="text-[10px] uppercase text-muted-foreground text-center">F8</span>
+                      <div className="w-16 h-20 shrink-0 border border-border overflow-hidden">
+                        <ProductImage
+                          src={undefined}
+                          alt={item.productName}
+                          productId={item.productId}
+                          className="gap-1 px-1"
+                          placeholderIconClassName="h-5 w-5"
+                          placeholderLabelClassName="text-[8px] tracking-wider leading-tight text-center"
+                        />
                       </div>
                       <div>
                         <p className="font-medium">{item.productName}</p>
