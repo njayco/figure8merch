@@ -11,4 +11,6 @@ export interface CartItemBody {
   productId: string;
   quantity: number;
   size: string;
+  /** Variant color. Empty string when product has no color variants. */
+  color?: string;
 }

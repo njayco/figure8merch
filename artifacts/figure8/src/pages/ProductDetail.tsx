@@ -19,6 +19,7 @@ export function ProductDetail() {
   const queryClient = useQueryClient();
 
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
 
   const { data: product, isLoading, isError } = useGetProduct(id, {
     query: {
@@ -26,6 +27,42 @@ export function ProductDetail() {
       queryKey: getGetProductQueryKey(id),
     }
   });
+
+  const hasVariants = (product?.variants?.length ?? 0) > 0;
+  const variantStockFor = (size: string | null, color: string | null): number | null => {
+    if (!product || !hasVariants) return null;
+    if (!size || !color) return null;
+    const v = product.variants.find(
+      (x: { size: string; color: string; stock: number }) => x.size === size && x.color === color
+    );
+    return v ? v.stock : 0;
+  };
+  const sizeIsAvailable = (size: string): boolean => {
+    if (!product || !hasVariants) return true;
+    return product.variants.some(
+      (v: { size: string; stock: number }) => v.size === size && v.stock > 0
+    );
+  };
+  const colorIsAvailableForSize = (color: string): boolean => {
+    if (!product || !hasVariants) return true;
+    if (!selectedSize) {
+      return product.variants.some(
+        (v: { color: string; stock: number }) => v.color === color && v.stock > 0
+      );
+    }
+    const v = product.variants.find(
+      (x: { size: string; color: string; stock: number }) =>
+        x.size === selectedSize && x.color === color
+    );
+    return !!v && v.stock > 0;
+  };
+  const selectedStock = variantStockFor(selectedSize, selectedColor);
+  const outOfStock =
+    hasVariants &&
+    !!selectedSize &&
+    !!selectedColor &&
+    selectedStock !== null &&
+    selectedStock <= 0;
 
   const { data: wishlist } = useGetWishlist({
     query: { enabled: !!user, queryKey: getGetWishlistQueryKey() }
@@ -59,11 +96,28 @@ export function ProductDetail() {
 
   const handleAddToCart = () => {
     const hasSizes = product?.sizes && product.sizes.length > 0;
+    const hasColors = product?.colors && product.colors.length > 0;
     if (hasSizes && !selectedSize) {
       toast({
         variant: "destructive",
         title: "Please select a size",
         description: "You must select a size before adding to cart.",
+      });
+      return;
+    }
+    if (hasColors && !selectedColor) {
+      toast({
+        variant: "destructive",
+        title: "Please select a color",
+        description: "You must select a color before adding to cart.",
+      });
+      return;
+    }
+    if (outOfStock) {
+      toast({
+        variant: "destructive",
+        title: "Out of stock",
+        description: `${selectedSize} / ${selectedColor} is currently sold out.`,
       });
       return;
     }
@@ -77,17 +131,32 @@ export function ProductDetail() {
     }
 
     addToCart.mutate(
-      { data: { productId: product.id, quantity: 1, size: selectedSize ?? "" } },
+      {
+        data: {
+          productId: product.id,
+          quantity: 1,
+          size: selectedSize ?? "",
+          color: selectedColor ?? "",
+        },
+      },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetCartQueryKey() });
+          const detail = [selectedSize, selectedColor].filter(Boolean).join(" / ");
           toast({
             title: "Added to cart",
-            description: selectedSize
-              ? `${product.name} (${selectedSize}) has been added to your cart.`
+            description: detail
+              ? `${product.name} (${detail}) has been added to your cart.`
               : `${product.name} has been added to your cart.`,
           });
-        }
+        },
+        onError: (err) => {
+          toast({
+            variant: "destructive",
+            title: "Could not add to cart",
+            description: err instanceof Error ? err.message : "Please try again.",
+          });
+        },
       }
     );
   };
@@ -153,45 +222,110 @@ export function ProductDetail() {
 
             {/* Size Selector */}
             {product.sizes.length > 0 && (
-              <div className="mb-10">
+              <div className="mb-8">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-sm font-bold uppercase tracking-wider">Size</h3>
                   <button className="text-xs text-muted-foreground uppercase tracking-widest hover:text-primary transition-colors underline underline-offset-4">
                     Size Guide
                   </button>
                 </div>
-                <div className="flex flex-wrap gap-3">
-                  {product.sizes.map((size: string) => (
-                    <button
-                      key={size}
-                      onClick={() => setSelectedSize(size)}
-                      className={cn(
-                        "h-12 min-w-[3rem] px-4 border flex items-center justify-center text-sm font-medium transition-all",
-                        selectedSize === size 
-                          ? "border-primary bg-primary text-primary-foreground" 
-                          : "border-border hover:border-primary hover:text-primary bg-transparent text-foreground"
-                      )}
-                    >
-                      {size}
-                    </button>
-                  ))}
+                <div className="flex flex-wrap gap-3" data-testid="list-sizes">
+                  {product.sizes.map((size: string) => {
+                    const available = sizeIsAvailable(size);
+                    const isSelected = selectedSize === size;
+                    return (
+                      <button
+                        key={size}
+                        onClick={() => available && setSelectedSize(size)}
+                        disabled={!available}
+                        title={available ? size : `${size} — sold out`}
+                        data-testid={`button-size-${size}`}
+                        className={cn(
+                          "h-12 min-w-[3rem] px-4 border flex items-center justify-center text-sm font-medium transition-all relative",
+                          isSelected
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-border hover:border-primary hover:text-primary bg-transparent text-foreground",
+                          !available && "opacity-50 line-through cursor-not-allowed hover:border-border hover:text-foreground"
+                        )}
+                      >
+                        {size}
+                      </button>
+                    );
+                  })}
                 </div>
+              </div>
+            )}
+
+            {/* Color Selector */}
+            {product.colors.length > 0 && (
+              <div className="mb-8">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-sm font-bold uppercase tracking-wider">
+                    Color{selectedColor ? `: ${selectedColor}` : ""}
+                  </h3>
+                </div>
+                <div className="flex flex-wrap gap-3" data-testid="list-colors">
+                  {product.colors.map((color: string) => {
+                    const available = colorIsAvailableForSize(color);
+                    const isSelected = selectedColor === color;
+                    return (
+                      <button
+                        key={color}
+                        onClick={() => available && setSelectedColor(color)}
+                        disabled={!available}
+                        title={available ? color : `${color} — sold out${selectedSize ? ` in ${selectedSize}` : ""}`}
+                        data-testid={`button-color-${color}`}
+                        className={cn(
+                          "h-12 px-4 border flex items-center justify-center text-sm font-medium transition-all",
+                          isSelected
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-border hover:border-primary hover:text-primary bg-transparent text-foreground",
+                          !available && "opacity-50 line-through cursor-not-allowed hover:border-border hover:text-foreground"
+                        )}
+                      >
+                        {color}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Stock badge */}
+            {hasVariants && selectedSize && selectedColor && (
+              <div className="mb-6 text-sm" data-testid="text-variant-stock">
+                {selectedStock !== null && selectedStock > 0 ? (
+                  <span className="text-muted-foreground">
+                    {selectedStock <= 5 ? (
+                      <span className="text-amber-700 font-medium">
+                        Only {selectedStock} left in {selectedSize} / {selectedColor}
+                      </span>
+                    ) : (
+                      <span>In stock — {selectedStock} available</span>
+                    )}
+                  </span>
+                ) : (
+                  <span className="text-destructive font-medium">
+                    {selectedSize} / {selectedColor} is sold out
+                  </span>
+                )}
               </div>
             )}
 
             {/* Actions */}
             <div className="flex gap-4 mb-12">
-              <Button 
+              <Button
                 className="flex-1 rounded-none uppercase tracking-widest font-bold h-14"
-                disabled={addToCart.isPending}
+                disabled={addToCart.isPending || outOfStock}
                 onClick={handleAddToCart}
+                data-testid="button-add-to-cart"
               >
                 {addToCart.isPending ? (
                   <Spinner className="h-5 w-5 mr-2" />
                 ) : (
                   <ShoppingBag className="h-5 w-5 mr-2" />
                 )}
-                Add to Cart
+                {outOfStock ? "Out of Stock" : "Add to Cart"}
               </Button>
               
               <Button 

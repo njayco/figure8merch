@@ -1,6 +1,7 @@
 import { useGetAdminStats, useListAdminOrders, useListProducts, useListCustomers, useUpdateOrderStatus, useHealthCheck, getListAdminOrdersQueryKey, getGetAdminStatsQueryKey, getHealthCheckQueryKey, ApiError } from "@workspace/api-client-react";
-import type { Product, AdminOrder, UpdateOrderStatusBodyStatus, HealthStatus } from "@workspace/api-client-react";
+import type { Product, ProductVariant, AdminOrder, UpdateOrderStatusBodyStatus, HealthStatus } from "@workspace/api-client-react";
 import { useState } from "react";
+import { NewProductDialog } from "@/components/NewProductDialog";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -460,22 +461,26 @@ export function Admin() {
           <TabsContent value="products">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-serif font-bold">Products ({products?.length ?? 0})</h2>
-              <Button
-                asChild
-                className="rounded-none uppercase tracking-widest text-xs"
-              >
-                <a
-                  href="https://dashboard.stripe.com/products"
-                  target="_blank"
-                  rel="noopener noreferrer"
+              <div className="flex items-center gap-2">
+                <NewProductDialog />
+                <Button
+                  asChild
+                  variant="outline"
+                  className="rounded-none uppercase tracking-widest text-xs"
                 >
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Manage in Stripe
-                </a>
-              </Button>
+                  <a
+                    href="https://dashboard.stripe.com/products"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Manage in Stripe
+                  </a>
+                </Button>
+              </div>
             </div>
             <p className="text-sm text-muted-foreground mb-4">
-              Products are managed directly in the Stripe Dashboard. Changes sync automatically to the shop.
+              New products created here are added to Stripe and tracked with per-(size, color) inventory. Edits to existing products still sync from Stripe.
             </p>
             <Alert className="rounded-none mb-4 bg-muted/30">
               <Info className="h-4 w-4" />
@@ -513,13 +518,15 @@ export function Admin() {
                     <TableHead className="uppercase tracking-wider font-bold">Category</TableHead>
                     <TableHead className="uppercase tracking-wider font-bold">Price</TableHead>
                     <TableHead className="uppercase tracking-wider font-bold">Sizes</TableHead>
+                    <TableHead className="uppercase tracking-wider font-bold">Colors</TableHead>
+                    <TableHead className="uppercase tracking-wider font-bold">Inventory</TableHead>
                     <TableHead className="uppercase tracking-wider font-bold">Featured</TableHead>
                     <TableHead className="uppercase tracking-wider font-bold">Stripe</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {products?.map((product: Product) => (
-                    <TableRow key={product.id}>
+                    <TableRow key={product.id} data-testid={`row-product-${product.id}`}>
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <img
@@ -540,6 +547,35 @@ export function Admin() {
                           <span className="text-xs text-muted-foreground italic">Not set</span>
                         )}
                       </TableCell>
+                      <TableCell>
+                        {product.colors && product.colors.length > 0 ? (
+                          <span className="text-sm">{product.colors.join(", ")}</span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground italic">Not set</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {product.variants && product.variants.length > 0 ? (
+                          <div className="flex flex-col gap-0.5 text-xs">
+                            <span className="font-medium">
+                              {product.variants.length} variants ·{" "}
+                              {product.variants.reduce(
+                                (sum: number, v: ProductVariant) => sum + v.stock,
+                                0
+                              )}{" "}
+                              in stock
+                            </span>
+                            <span className="text-muted-foreground">
+                              {product.variants.filter((v: ProductVariant) => v.stock === 0).length}{" "}
+                              out of stock
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground italic">
+                            Unlimited (legacy)
+                          </span>
+                        )}
+                      </TableCell>
                       <TableCell>{product.isFeatured ? "Yes" : "No"}</TableCell>
                       <TableCell>
                         <a
@@ -557,7 +593,7 @@ export function Admin() {
                   ))}
                   {(!products || products.length === 0) && (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No products found.</TableCell>
+                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No products found.</TableCell>
                     </TableRow>
                   )}
                 </TableBody>

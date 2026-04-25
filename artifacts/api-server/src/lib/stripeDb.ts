@@ -1,5 +1,5 @@
-import { db } from "@workspace/db";
-import { sql, SQL } from "drizzle-orm";
+import { db, productVariantsTable } from "@workspace/db";
+import { sql, SQL, inArray, eq } from "drizzle-orm";
 
 export interface StripeProductRow {
   id: string;
@@ -10,6 +10,12 @@ export interface StripeProductRow {
   created: number | null;
   price_id: string | null;
   unit_amount: number | null;
+}
+
+export interface VariantRow {
+  size: string;
+  color: string;
+  stock: number;
 }
 
 export interface StripeProductSummary {
@@ -136,12 +142,39 @@ export async function countActiveStripeProducts(): Promise<number> {
   return Number(rows[0]?.count ?? 0);
 }
 
-function parseSizes(raw: string | undefined): string[] {
+function parseList(raw: string | undefined): string[] {
   if (!raw || raw.trim() === "") return [];
   return raw.split(",").map((s) => s.trim()).filter(Boolean);
 }
 
-export function toProductShape(p: StripeProductRow) {
+export async function getVariantsForProducts(
+  ids: string[],
+): Promise<Map<string, VariantRow[]>> {
+  const map = new Map<string, VariantRow[]>();
+  if (ids.length === 0) return map;
+  const rows = await db
+    .select()
+    .from(productVariantsTable)
+    .where(inArray(productVariantsTable.productId, ids));
+  for (const r of rows) {
+    const arr = map.get(r.productId) ?? [];
+    arr.push({ size: r.size, color: r.color, stock: r.stock });
+    map.set(r.productId, arr);
+  }
+  return map;
+}
+
+export async function getVariantsForProduct(id: string): Promise<VariantRow[]> {
+  const rows = await db
+    .select()
+    .from(productVariantsTable)
+    .where(eq(productVariantsTable.productId, id));
+  return rows.map((r) => ({ size: r.size, color: r.color, stock: r.stock }));
+}
+
+export function toProductShape(p: StripeProductRow, variants: VariantRow[] = []) {
+  const totalStock =
+    variants.length === 0 ? null : variants.reduce((s, v) => s + v.stock, 0);
   return {
     id: p.id,
     name: p.name,
@@ -149,7 +182,10 @@ export function toProductShape(p: StripeProductRow) {
     price: p.unit_amount != null ? p.unit_amount / 100 : 0,
     imageUrl: Array.isArray(p.images) && p.images.length > 0 ? p.images[0] : "",
     category: p.metadata?.category ?? "other",
-    sizes: parseSizes(p.metadata?.sizes),
+    sizes: parseList(p.metadata?.sizes),
+    colors: parseList(p.metadata?.colors),
+    variants,
+    totalStock,
     isFeatured: p.metadata?.featured === "true",
     createdAt: p.created ? new Date(p.created * 1000) : new Date(),
     stripePriceId: p.price_id ?? "",

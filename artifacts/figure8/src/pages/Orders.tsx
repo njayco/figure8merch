@@ -299,7 +299,10 @@ export function Orders() {
                       </div>
                       <div>
                         <p className="font-medium">{item.productName}</p>
-                        <p className="text-sm text-muted-foreground uppercase tracking-wider mt-1">Size: {item.size} | Qty: {item.quantity}</p>
+                        <p className="text-sm text-muted-foreground uppercase tracking-wider mt-1">
+                          Size: {item.size}
+                          {item.color ? ` | Color: ${item.color}` : ""} | Qty: {item.quantity}
+                        </p>
                       </div>
                     </div>
                     <div className="font-medium">

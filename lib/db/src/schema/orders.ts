@@ -13,6 +13,7 @@ export const ordersTable = pgTable("orders", {
     price: number;
     quantity: number;
     size: string;
+    color?: string;
   }>>(),
   total: numeric("total", { precision: 10, scale: 2 }).notNull(),
   status: text("status").notNull().default("pending"),

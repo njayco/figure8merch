@@ -1,10 +1,17 @@
 import { Router, type IRouter } from "express";
 import type Stripe from "stripe";
-import { db, usersTable, cartItemsTable, ordersTable, checkoutSnapshotsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import {
+  db,
+  usersTable,
+  cartItemsTable,
+  ordersTable,
+  checkoutSnapshotsTable,
+  productVariantsTable,
+} from "@workspace/db";
+import { eq, and, sql } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
 import { getUncachableStripeClient, getStripePublishableKey } from "../lib/stripeClient";
-import { getStripeProductSummaries } from "../lib/stripeDb";
+import { getStripeProductSummaries, getVariantsForProducts } from "../lib/stripeDb";
 
 const router: IRouter = Router();
 
@@ -23,6 +30,7 @@ interface CartLineSnapshot {
   stripePriceId: string;
   price: number;
   size: string;
+  color: string;
   quantity: number;
 }
 
@@ -92,9 +100,29 @@ router.post("/stripe/create-checkout-session", requireAuth, async (req: AuthRequ
         stripePriceId: p.price_id!,
         price: p.unit_amount != null ? p.unit_amount / 100 : 0,
         size: r.size,
+        color: r.color ?? "",
         quantity: r.quantity,
       };
     });
+
+    // Pre-flight: ensure variant inventory exists for any products that have variants configured.
+    // This rejects checkout up front so the user never reaches Stripe with a stale combo.
+    const variantMap = await getVariantsForProducts(productIds);
+    const insufficient: string[] = [];
+    for (const line of cartSnapshot) {
+      const variants = variantMap.get(line.productId);
+      if (!variants || variants.length === 0) continue; // legacy product, no per-variant stock
+      const v = variants.find((x) => x.size === line.size && x.color === line.color);
+      if (!v || v.stock < line.quantity) {
+        insufficient.push(`${line.productName} (${line.size}, ${line.color || "—"})`);
+      }
+    }
+    if (insufficient.length > 0) {
+      res.status(400).json({
+        error: `Some items are out of stock or unavailable: ${insufficient.join(", ")}.`,
+      });
+      return;
+    }
 
     // Aggregate quantities per price_id for Stripe line_items
     const lineItemMap = new Map<string, number>();
@@ -212,6 +240,36 @@ router.post("/stripe/complete-order", requireAuth, async (req: AuthRequest, res)
     const cardLast4 = paymentMethod?.type === "card" ? (paymentMethod.card?.last4 ?? null) : null;
 
     try {
+      // Decrement variant stock atomically. We use a guarded UPDATE so we never go negative.
+      // If a row is missing (no variants configured for this product), we skip it — that's
+      // the legacy "no inventory tracked" path. If a guarded update affects zero rows, we
+      // know we ran out of stock and we abort the order.
+      const productIdsInOrder = [...new Set(cartSnapshot.map((l) => l.productId))];
+      const variantsByProduct = await getVariantsForProducts(productIdsInOrder);
+
+      for (const line of cartSnapshot) {
+        const tracked = variantsByProduct.get(line.productId);
+        if (!tracked || tracked.length === 0) continue;
+        const result = await db
+          .update(productVariantsTable)
+          .set({ stock: sql`${productVariantsTable.stock} - ${line.quantity}` })
+          .where(
+            and(
+              eq(productVariantsTable.productId, line.productId),
+              eq(productVariantsTable.size, line.size),
+              eq(productVariantsTable.color, line.color),
+              sql`${productVariantsTable.stock} >= ${line.quantity}`,
+            ),
+          )
+          .returning({ id: productVariantsTable.id });
+        if (result.length === 0) {
+          res.status(409).json({
+            error: `Sorry, ${line.productName} (${line.size}, ${line.color || "—"}) sold out before your order could be finalized. Please contact support to arrange a refund.`,
+          });
+          return;
+        }
+      }
+
       const [order] = await db.insert(ordersTable).values({
         userId,
         items: cartSnapshot,

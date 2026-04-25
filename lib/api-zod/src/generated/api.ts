@@ -78,6 +78,24 @@ export const ListProductsResponseItem = zod.object({
   imageUrl: zod.string(),
   category: zod.string(),
   sizes: zod.array(zod.string()),
+  colors: zod.array(zod.string()),
+  variants: zod
+    .array(
+      zod.object({
+        size: zod.string(),
+        color: zod.string(),
+        stock: zod.number(),
+      }),
+    )
+    .describe(
+      "Per (size, color) inventory rows. Empty when product has no variants configured (then stock is unlimited).",
+    ),
+  totalStock: zod
+    .number()
+    .nullish()
+    .describe(
+      "Sum of stock across all variants. Null when no variants are configured.",
+    ),
   isFeatured: zod.boolean(),
   createdAt: zod.coerce.date(),
   stripePriceId: zod.string().describe("Stripe price ID (price_...)"),
@@ -91,9 +109,17 @@ export const CreateProductBody = zod.object({
   name: zod.string(),
   description: zod.string(),
   price: zod.number(),
-  imageUrl: zod.string(),
+  imageUrl: zod.string().optional(),
   category: zod.string(),
   sizes: zod.array(zod.string()),
+  colors: zod.array(zod.string()),
+  variants: zod.array(
+    zod.object({
+      size: zod.string(),
+      color: zod.string(),
+      stock: zod.number(),
+    }),
+  ),
   isFeatured: zod.boolean().optional(),
 });
 
@@ -112,6 +138,24 @@ export const GetProductResponse = zod.object({
   imageUrl: zod.string(),
   category: zod.string(),
   sizes: zod.array(zod.string()),
+  colors: zod.array(zod.string()),
+  variants: zod
+    .array(
+      zod.object({
+        size: zod.string(),
+        color: zod.string(),
+        stock: zod.number(),
+      }),
+    )
+    .describe(
+      "Per (size, color) inventory rows. Empty when product has no variants configured (then stock is unlimited).",
+    ),
+  totalStock: zod
+    .number()
+    .nullish()
+    .describe(
+      "Sum of stock across all variants. Null when no variants are configured.",
+    ),
   isFeatured: zod.boolean(),
   createdAt: zod.coerce.date(),
   stripePriceId: zod.string().describe("Stripe price ID (price_...)"),
@@ -128,9 +172,17 @@ export const UpdateProductBody = zod.object({
   name: zod.string(),
   description: zod.string(),
   price: zod.number(),
-  imageUrl: zod.string(),
+  imageUrl: zod.string().optional(),
   category: zod.string(),
   sizes: zod.array(zod.string()),
+  colors: zod.array(zod.string()),
+  variants: zod.array(
+    zod.object({
+      size: zod.string(),
+      color: zod.string(),
+      stock: zod.number(),
+    }),
+  ),
   isFeatured: zod.boolean().optional(),
 });
 
@@ -142,6 +194,24 @@ export const UpdateProductResponse = zod.object({
   imageUrl: zod.string(),
   category: zod.string(),
   sizes: zod.array(zod.string()),
+  colors: zod.array(zod.string()),
+  variants: zod
+    .array(
+      zod.object({
+        size: zod.string(),
+        color: zod.string(),
+        stock: zod.number(),
+      }),
+    )
+    .describe(
+      "Per (size, color) inventory rows. Empty when product has no variants configured (then stock is unlimited).",
+    ),
+  totalStock: zod
+    .number()
+    .nullish()
+    .describe(
+      "Sum of stock across all variants. Null when no variants are configured.",
+    ),
   isFeatured: zod.boolean(),
   createdAt: zod.coerce.date(),
   stripePriceId: zod.string().describe("Stripe price ID (price_...)"),
@@ -165,6 +235,24 @@ export const ListFeaturedProductsResponseItem = zod.object({
   imageUrl: zod.string(),
   category: zod.string(),
   sizes: zod.array(zod.string()),
+  colors: zod.array(zod.string()),
+  variants: zod
+    .array(
+      zod.object({
+        size: zod.string(),
+        color: zod.string(),
+        stock: zod.number(),
+      }),
+    )
+    .describe(
+      "Per (size, color) inventory rows. Empty when product has no variants configured (then stock is unlimited).",
+    ),
+  totalStock: zod
+    .number()
+    .nullish()
+    .describe(
+      "Sum of stock across all variants. Null when no variants are configured.",
+    ),
   isFeatured: zod.boolean(),
   createdAt: zod.coerce.date(),
   stripePriceId: zod.string().describe("Stripe price ID (price_...)"),
@@ -187,12 +275,31 @@ export const GetCartResponse = zod.object({
         imageUrl: zod.string(),
         category: zod.string(),
         sizes: zod.array(zod.string()),
+        colors: zod.array(zod.string()),
+        variants: zod
+          .array(
+            zod.object({
+              size: zod.string(),
+              color: zod.string(),
+              stock: zod.number(),
+            }),
+          )
+          .describe(
+            "Per (size, color) inventory rows. Empty when product has no variants configured (then stock is unlimited).",
+          ),
+        totalStock: zod
+          .number()
+          .nullish()
+          .describe(
+            "Sum of stock across all variants. Null when no variants are configured.",
+          ),
         isFeatured: zod.boolean(),
         createdAt: zod.coerce.date(),
         stripePriceId: zod.string().describe("Stripe price ID (price_...)"),
       }),
       quantity: zod.number(),
       size: zod.string(),
+      color: zod.string(),
     }),
   ),
   total: zod.number(),
@@ -202,10 +309,18 @@ export const GetCartResponse = zod.object({
 /**
  * @summary Add item to cart
  */
+export const addToCartBodyColorDefault = ``;
+
 export const AddToCartBody = zod.object({
   productId: zod.string().describe("Stripe product ID (prod_...)"),
   quantity: zod.number(),
   size: zod.string(),
+  color: zod
+    .string()
+    .default(addToCartBodyColorDefault)
+    .describe(
+      "Variant color. Empty string when product has no color variants.",
+    ),
 });
 
 export const AddToCartResponse = zod.object({
@@ -219,12 +334,31 @@ export const AddToCartResponse = zod.object({
         imageUrl: zod.string(),
         category: zod.string(),
         sizes: zod.array(zod.string()),
+        colors: zod.array(zod.string()),
+        variants: zod
+          .array(
+            zod.object({
+              size: zod.string(),
+              color: zod.string(),
+              stock: zod.number(),
+            }),
+          )
+          .describe(
+            "Per (size, color) inventory rows. Empty when product has no variants configured (then stock is unlimited).",
+          ),
+        totalStock: zod
+          .number()
+          .nullish()
+          .describe(
+            "Sum of stock across all variants. Null when no variants are configured.",
+          ),
         isFeatured: zod.boolean(),
         createdAt: zod.coerce.date(),
         stripePriceId: zod.string().describe("Stripe price ID (price_...)"),
       }),
       quantity: zod.number(),
       size: zod.string(),
+      color: zod.string(),
     }),
   ),
   total: zod.number(),
@@ -237,6 +371,12 @@ export const AddToCartResponse = zod.object({
 export const UpdateCartItemParams = zod.object({
   productId: zod.coerce.string(),
   size: zod.coerce.string(),
+});
+
+export const updateCartItemQueryColorDefault = ``;
+
+export const UpdateCartItemQueryParams = zod.object({
+  color: zod.coerce.string().default(updateCartItemQueryColorDefault),
 });
 
 export const UpdateCartItemBody = zod.object({
@@ -254,12 +394,31 @@ export const UpdateCartItemResponse = zod.object({
         imageUrl: zod.string(),
         category: zod.string(),
         sizes: zod.array(zod.string()),
+        colors: zod.array(zod.string()),
+        variants: zod
+          .array(
+            zod.object({
+              size: zod.string(),
+              color: zod.string(),
+              stock: zod.number(),
+            }),
+          )
+          .describe(
+            "Per (size, color) inventory rows. Empty when product has no variants configured (then stock is unlimited).",
+          ),
+        totalStock: zod
+          .number()
+          .nullish()
+          .describe(
+            "Sum of stock across all variants. Null when no variants are configured.",
+          ),
         isFeatured: zod.boolean(),
         createdAt: zod.coerce.date(),
         stripePriceId: zod.string().describe("Stripe price ID (price_...)"),
       }),
       quantity: zod.number(),
       size: zod.string(),
+      color: zod.string(),
     }),
   ),
   total: zod.number(),
@@ -274,6 +433,12 @@ export const RemoveFromCartParams = zod.object({
   size: zod.coerce.string(),
 });
 
+export const removeFromCartQueryColorDefault = ``;
+
+export const RemoveFromCartQueryParams = zod.object({
+  color: zod.coerce.string().default(removeFromCartQueryColorDefault),
+});
+
 export const RemoveFromCartResponse = zod.object({
   items: zod.array(
     zod.object({
@@ -285,12 +450,31 @@ export const RemoveFromCartResponse = zod.object({
         imageUrl: zod.string(),
         category: zod.string(),
         sizes: zod.array(zod.string()),
+        colors: zod.array(zod.string()),
+        variants: zod
+          .array(
+            zod.object({
+              size: zod.string(),
+              color: zod.string(),
+              stock: zod.number(),
+            }),
+          )
+          .describe(
+            "Per (size, color) inventory rows. Empty when product has no variants configured (then stock is unlimited).",
+          ),
+        totalStock: zod
+          .number()
+          .nullish()
+          .describe(
+            "Sum of stock across all variants. Null when no variants are configured.",
+          ),
         isFeatured: zod.boolean(),
         createdAt: zod.coerce.date(),
         stripePriceId: zod.string().describe("Stripe price ID (price_...)"),
       }),
       quantity: zod.number(),
       size: zod.string(),
+      color: zod.string(),
     }),
   ),
   total: zod.number(),
@@ -308,6 +492,24 @@ export const GetWishlistResponseItem = zod.object({
   imageUrl: zod.string(),
   category: zod.string(),
   sizes: zod.array(zod.string()),
+  colors: zod.array(zod.string()),
+  variants: zod
+    .array(
+      zod.object({
+        size: zod.string(),
+        color: zod.string(),
+        stock: zod.number(),
+      }),
+    )
+    .describe(
+      "Per (size, color) inventory rows. Empty when product has no variants configured (then stock is unlimited).",
+    ),
+  totalStock: zod
+    .number()
+    .nullish()
+    .describe(
+      "Sum of stock across all variants. Null when no variants are configured.",
+    ),
   isFeatured: zod.boolean(),
   createdAt: zod.coerce.date(),
   stripePriceId: zod.string().describe("Stripe price ID (price_...)"),
@@ -353,6 +555,7 @@ export const ListOrdersResponseItem = zod.object({
       price: zod.number(),
       quantity: zod.number(),
       size: zod.string(),
+      color: zod.string().optional(),
     }),
   ),
   total: zod.number(),
@@ -425,6 +628,7 @@ export const GetOrderResponse = zod.object({
       price: zod.number(),
       quantity: zod.number(),
       size: zod.string(),
+      color: zod.string().optional(),
     }),
   ),
   total: zod.number(),
@@ -530,6 +734,7 @@ export const GetAdminStatsResponse = zod.object({
           price: zod.number(),
           quantity: zod.number(),
           size: zod.string(),
+          color: zod.string().optional(),
         }),
       ),
       total: zod.number(),
@@ -580,6 +785,7 @@ export const ListAdminOrdersResponseItem = zod.object({
       price: zod.number(),
       quantity: zod.number(),
       size: zod.string(),
+      color: zod.string().optional(),
     }),
   ),
   total: zod.number(),
@@ -636,6 +842,7 @@ export const UpdateOrderStatusResponse = zod.object({
       price: zod.number(),
       quantity: zod.number(),
       size: zod.string(),
+      color: zod.string().optional(),
     }),
   ),
   total: zod.number(),

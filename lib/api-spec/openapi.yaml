@@ -291,6 +291,12 @@ paths:
           required: true
           schema:
             type: string
+        - in: query
+          name: color
+          required: false
+          schema:
+            type: string
+            default: ""
       requestBody:
         required: true
         content:
@@ -321,6 +327,12 @@ paths:
           required: true
           schema:
             type: string
+        - in: query
+          name: color
+          required: false
+          schema:
+            type: string
+            default: ""
       responses:
         "200":
           description: Updated cart
@@ -773,6 +785,19 @@ components:
           type: array
           items:
             type: string
+        colors:
+          type: array
+          items:
+            type: string
+        variants:
+          type: array
+          description: Per (size, color) inventory rows. Empty when product has no variants configured (then stock is unlimited).
+          items:
+            $ref: "#/components/schemas/ProductVariant"
+        totalStock:
+          type: integer
+          description: Sum of stock across all variants. Null when no variants are configured.
+          nullable: true
         isFeatured:
           type: boolean
         createdAt:
@@ -789,9 +814,25 @@ components:
         - imageUrl
         - category
         - sizes
+        - colors
+        - variants
         - isFeatured
         - createdAt
         - stripePriceId
+
+    ProductVariant:
+      type: object
+      properties:
+        size:
+          type: string
+        color:
+          type: string
+        stock:
+          type: integer
+      required:
+        - size
+        - color
+        - stock
 
     CreateProductBody:
       type: object
@@ -810,15 +851,24 @@ components:
           type: array
           items:
             type: string
+        colors:
+          type: array
+          items:
+            type: string
+        variants:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductVariant"
         isFeatured:
           type: boolean
       required:
         - name
         - description
         - price
-        - imageUrl
         - category
         - sizes
+        - colors
+        - variants
 
     # ── Cart ──────────────────────────────────────────────────────────────
     CartItem:
@@ -830,10 +880,13 @@ components:
           type: integer
         size:
           type: string
+        color:
+          type: string
       required:
         - product
         - quantity
         - size
+        - color
 
     Cart:
       type: object
@@ -861,6 +914,10 @@ components:
           type: integer
         size:
           type: string
+        color:
+          type: string
+          description: Variant color. Empty string when product has no color variants.
+          default: ""
       required:
         - productId
         - quantity
@@ -891,6 +948,8 @@ components:
         quantity:
           type: integer
         size:
+          type: string
+        color:
           type: string
       required:
         - productId

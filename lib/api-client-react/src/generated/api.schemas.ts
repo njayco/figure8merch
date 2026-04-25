@@ -75,6 +75,12 @@ export interface AuthResponse {
   user: User;
 }
 
+export interface ProductVariant {
+  size: string;
+  color: string;
+  stock: number;
+}
+
 export interface Product {
   /** Stripe product ID (prod_...) */
   id: string;
@@ -84,6 +90,11 @@ export interface Product {
   imageUrl: string;
   category: string;
   sizes: string[];
+  colors: string[];
+  /** Per (size, color) inventory rows. Empty when product has no variants configured (then stock is unlimited). */
+  variants: ProductVariant[];
+  /** Sum of stock across all variants. Null when no variants are configured. */
+  totalStock?: number | null;
   isFeatured: boolean;
   createdAt: string;
   /** Stripe price ID (price_...) */
@@ -94,9 +105,11 @@ export interface CreateProductBody {
   name: string;
   description: string;
   price: number;
-  imageUrl: string;
+  imageUrl?: string;
   category: string;
   sizes: string[];
+  colors: string[];
+  variants: ProductVariant[];
   isFeatured?: boolean;
 }
 
@@ -104,6 +117,7 @@ export interface CartItem {
   product: Product;
   quantity: number;
   size: string;
+  color: string;
 }
 
 export interface Cart {
@@ -117,6 +131,8 @@ export interface CartItemBody {
   productId: string;
   quantity: number;
   size: string;
+  /** Variant color. Empty string when product has no color variants. */
+  color?: string;
 }
 
 export interface UpdateCartItemBody {
@@ -132,6 +148,7 @@ export interface OrderItem {
   price: number;
   quantity: number;
   size: string;
+  color?: string;
 }
 
 export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
@@ -248,4 +265,12 @@ export type ListProductsParams = {
   category?: string;
   featured?: boolean;
   search?: string;
+};
+
+export type UpdateCartItemParams = {
+  color?: string;
+};
+
+export type RemoveFromCartParams = {
+  color?: string;
 };

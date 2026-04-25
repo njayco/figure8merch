@@ -152,6 +152,7 @@ router.post("/orders", requireAuth, async (req: AuthRequest, res): Promise<void>
         price: p?.unit_amount != null ? p.unit_amount / 100 : 0,
         quantity: r.quantity,
         size: r.size,
+        color: r.color ?? "",
       };
     });
 

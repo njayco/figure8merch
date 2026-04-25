@@ -21,25 +21,35 @@ export function Cart() {
   const updateCartItem = useUpdateCartItem();
   const removeFromCart = useRemoveFromCart();
 
-  const handleUpdateQuantity = (productId: string, size: string, newQuantity: number) => {
+  const handleUpdateQuantity = (
+    productId: string,
+    size: string,
+    color: string,
+    newQuantity: number
+  ) => {
     if (newQuantity < 1) return;
     updateCartItem.mutate(
-      { productId, size, data: { quantity: newQuantity } },
+      {
+        productId,
+        size,
+        data: { quantity: newQuantity },
+        params: color ? { color } : undefined,
+      },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetCartQueryKey() });
-        }
+        },
       }
     );
   };
 
-  const handleRemove = (productId: string, size: string) => {
+  const handleRemove = (productId: string, size: string, color: string) => {
     removeFromCart.mutate(
-      { productId, size },
+      { productId, size, params: color ? { color } : undefined },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetCartQueryKey() });
-        }
+        },
       }
     );
   };
@@ -84,60 +94,74 @@ export function Cart() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
           {/* Cart Items */}
           <div className="lg:col-span-2 space-y-8">
-            {cart.items.map((item) => (
-              <div key={`${item.product.id}-${item.size}`} className="flex flex-col sm:flex-row gap-6 border-b border-border pb-8">
-                {/* Image */}
-                <Link href={`/shop/${item.product.id}`} className="w-full sm:w-32 aspect-[3/4] bg-muted shrink-0 block">
-                  <ProductImage
-                    src={item.product.imageUrl}
-                    alt={item.product.name}
-                    productId={item.product.id}
-                  />
-                </Link>
+            {cart.items.map((item) => {
+              const itemColor = item.color ?? "";
+              const lineKey = `${item.product.id}-${item.size}-${itemColor}`;
+              return (
+                <div key={lineKey} className="flex flex-col sm:flex-row gap-6 border-b border-border pb-8" data-testid={`cart-item-${item.product.id}-${item.size}-${itemColor}`}>
+                  {/* Image */}
+                  <Link href={`/shop/${item.product.id}`} className="w-full sm:w-32 aspect-[3/4] bg-muted shrink-0 block">
+                    <ProductImage
+                      src={item.product.imageUrl}
+                      alt={item.product.name}
+                      productId={item.product.id}
+                    />
+                  </Link>
 
-                {/* Details */}
-                <div className="flex-1 flex flex-col justify-between">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <Link href={`/shop/${item.product.id}`} className="text-lg font-medium hover:text-primary transition-colors">
-                        {item.product.name}
-                      </Link>
-                      <p className="text-sm text-muted-foreground mt-1 uppercase tracking-wider">Size: {item.size}</p>
-                    </div>
-                    <p className="font-medium">${(item.product.price * item.quantity).toFixed(2)}</p>
-                  </div>
-
-                  <div className="flex justify-between items-center mt-6 sm:mt-0">
-                    {/* Quantity Selector */}
-                    <div className="flex items-center border border-border">
-                      <button 
-                        className="px-3 py-2 hover:bg-muted transition-colors disabled:opacity-50"
-                        onClick={() => handleUpdateQuantity(item.product.id, item.size, item.quantity - 1)}
-                        disabled={item.quantity <= 1 || updateCartItem.isPending}
-                      >
-                        <Minus className="h-4 w-4" />
-                      </button>
-                      <span className="w-8 text-center text-sm font-medium">{item.quantity}</span>
-                      <button 
-                        className="px-3 py-2 hover:bg-muted transition-colors"
-                        onClick={() => handleUpdateQuantity(item.product.id, item.size, item.quantity + 1)}
-                        disabled={updateCartItem.isPending}
-                      >
-                        <Plus className="h-4 w-4" />
-                      </button>
+                  {/* Details */}
+                  <div className="flex-1 flex flex-col justify-between">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <Link href={`/shop/${item.product.id}`} className="text-lg font-medium hover:text-primary transition-colors">
+                          {item.product.name}
+                        </Link>
+                        <p className="text-sm text-muted-foreground mt-1 uppercase tracking-wider">
+                          Size: {item.size}
+                          {itemColor && (
+                            <>
+                              <span className="mx-2 opacity-50">·</span>
+                              Color: {itemColor}
+                            </>
+                          )}
+                        </p>
+                      </div>
+                      <p className="font-medium">${(item.product.price * item.quantity).toFixed(2)}</p>
                     </div>
 
-                    <button 
-                      onClick={() => handleRemove(item.product.id, item.size)}
-                      disabled={removeFromCart.isPending}
-                      className="text-sm text-muted-foreground hover:text-destructive flex items-center uppercase tracking-widest transition-colors font-medium"
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" /> Remove
-                    </button>
+                    <div className="flex justify-between items-center mt-6 sm:mt-0">
+                      {/* Quantity Selector */}
+                      <div className="flex items-center border border-border">
+                        <button
+                          className="px-3 py-2 hover:bg-muted transition-colors disabled:opacity-50"
+                          onClick={() => handleUpdateQuantity(item.product.id, item.size, itemColor, item.quantity - 1)}
+                          disabled={item.quantity <= 1 || updateCartItem.isPending}
+                          aria-label="Decrease quantity"
+                        >
+                          <Minus className="h-4 w-4" />
+                        </button>
+                        <span className="w-8 text-center text-sm font-medium">{item.quantity}</span>
+                        <button
+                          className="px-3 py-2 hover:bg-muted transition-colors"
+                          onClick={() => handleUpdateQuantity(item.product.id, item.size, itemColor, item.quantity + 1)}
+                          disabled={updateCartItem.isPending}
+                          aria-label="Increase quantity"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
+                      </div>
+
+                      <button
+                        onClick={() => handleRemove(item.product.id, item.size, itemColor)}
+                        disabled={removeFromCart.isPending}
+                        className="text-sm text-muted-foreground hover:text-destructive flex items-center uppercase tracking-widest transition-colors font-medium"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" /> Remove
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Order Summary */}

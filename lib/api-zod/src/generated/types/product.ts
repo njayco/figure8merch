@@ -5,6 +5,7 @@
  * Figure 8 E-Commerce API
  * OpenAPI spec version: 0.1.0
  */
+import type { ProductVariant } from "./productVariant";
 
 export interface Product {
   /** Stripe product ID (prod_...) */
@@ -15,6 +16,11 @@ export interface Product {
   imageUrl: string;
   category: string;
   sizes: string[];
+  colors: string[];
+  /** Per (size, color) inventory rows. Empty when product has no variants configured (then stock is unlimited). */
+  variants: ProductVariant[];
+  /** Sum of stock across all variants. Null when no variants are configured. */
+  totalStock?: number | null;
   isFeatured: boolean;
   createdAt: Date;
   /** Stripe price ID (price_...) */

@@ -269,30 +269,41 @@ export function Checkout() {
               <h2 className="text-xl font-serif font-bold mb-6">In Your Bag</h2>
 
               <div className="space-y-6 mb-8 max-h-[400px] overflow-y-auto pr-2">
-                {cart.items.map((item: any) => (
-                  <div key={`${item.product.id}-${item.size}`} className="flex gap-4">
-                    <div className="w-16 h-20 bg-muted shrink-0 relative overflow-hidden">
-                      <ProductImage
-                        src={item.product.imageUrl}
-                        alt={item.product.name}
-                        productId={item.product.id}
-                        className="gap-1 p-1 text-center"
-                        placeholderIconClassName="h-5 w-5"
-                        placeholderLabelClassName="text-[8px] leading-tight tracking-wider"
-                      />
-                      <span className="absolute -top-2 -right-2 bg-foreground text-background text-xs w-5 h-5 rounded-full flex items-center justify-center font-medium">
-                        {item.quantity}
-                      </span>
+                {cart.items.map((item: any) => {
+                  const itemColor = item.color ?? "";
+                  return (
+                    <div key={`${item.product.id}-${item.size}-${itemColor}`} className="flex gap-4">
+                      <div className="w-16 h-20 bg-muted shrink-0 relative overflow-hidden">
+                        <ProductImage
+                          src={item.product.imageUrl}
+                          alt={item.product.name}
+                          productId={item.product.id}
+                          className="gap-1 p-1 text-center"
+                          placeholderIconClassName="h-5 w-5"
+                          placeholderLabelClassName="text-[8px] leading-tight tracking-wider"
+                        />
+                        <span className="absolute -top-2 -right-2 bg-foreground text-background text-xs w-5 h-5 rounded-full flex items-center justify-center font-medium">
+                          {item.quantity}
+                        </span>
+                      </div>
+                      <div className="flex-1 flex flex-col justify-center">
+                        <p className="text-sm font-medium leading-tight">{item.product.name}</p>
+                        <p className="text-xs text-muted-foreground mt-1 uppercase">
+                          Size: {item.size}
+                          {itemColor && (
+                            <>
+                              <span className="mx-1.5 opacity-50">·</span>
+                              {itemColor}
+                            </>
+                          )}
+                        </p>
+                      </div>
+                      <div className="flex items-center">
+                        <p className="text-sm font-medium">${(item.product.price * item.quantity).toFixed(2)}</p>
+                      </div>
                     </div>
-                    <div className="flex-1 flex flex-col justify-center">
-                      <p className="text-sm font-medium leading-tight">{item.product.name}</p>
-                      <p className="text-xs text-muted-foreground mt-1 uppercase">Size: {item.size}</p>
-                    </div>
-                    <div className="flex items-center">
-                      <p className="text-sm font-medium">${(item.product.price * item.quantity).toFixed(2)}</p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div className="space-y-4 text-sm border-t border-border pt-6 mb-6">

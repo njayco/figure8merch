@@ -5,13 +5,16 @@
  * Figure 8 E-Commerce API
  * OpenAPI spec version: 0.1.0
  */
+import type { ProductVariant } from "./productVariant";
 
 export interface CreateProductBody {
   name: string;
   description: string;
   price: number;
-  imageUrl: string;
+  imageUrl?: string;
   category: string;
   sizes: string[];
+  colors: string[];
+  variants: ProductVariant[];
   isFeatured?: boolean;
 }

@@ -5,11 +5,9 @@
  * Figure 8 E-Commerce API
  * OpenAPI spec version: 0.1.0
  */
-import type { Product } from "./product";
 
-export interface CartItem {
-  product: Product;
-  quantity: number;
+export interface ProductVariant {
   size: string;
   color: string;
+  stock: number;
 }
