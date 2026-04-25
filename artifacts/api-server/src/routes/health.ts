@@ -13,6 +13,7 @@ router.get("/healthz", (_req, res) => {
     ...base,
     stripe: {
       status: stripe.status,
+      ...(stripe.error ? { error: stripe.error } : {}),
     },
   };
 

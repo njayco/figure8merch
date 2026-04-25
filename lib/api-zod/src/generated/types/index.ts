@@ -31,5 +31,7 @@ export * from "./orderItem";
 export * from "./orderStatus";
 export * from "./product";
 export * from "./registerBody";
+export * from "./stripeHealthStatus";
+export * from "./stripeHealthStatusStatus";
 export * from "./updateCartItemBody";
 export * from "./user";

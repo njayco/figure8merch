@@ -5,8 +5,23 @@
  * Figure 8 E-Commerce API
  * OpenAPI spec version: 0.1.0
  */
+export type StripeHealthStatusStatus =
+  (typeof StripeHealthStatusStatus)[keyof typeof StripeHealthStatusStatus];
+
+export const StripeHealthStatusStatus = {
+  initializing: "initializing",
+  ready: "ready",
+  failed: "failed",
+} as const;
+
+export interface StripeHealthStatus {
+  status: StripeHealthStatusStatus;
+  error?: string;
+}
+
 export interface HealthStatus {
   status: string;
+  stripe?: StripeHealthStatus;
 }
 
 export interface ErrorResponse {

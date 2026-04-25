@@ -5,7 +5,9 @@
  * Figure 8 E-Commerce API
  * OpenAPI spec version: 0.1.0
  */
+import type { StripeHealthStatus } from "./stripeHealthStatus";
 
 export interface HealthStatus {
   status: string;
+  stripe?: StripeHealthStatus;
 }

@@ -12,6 +12,12 @@ import * as zod from "zod";
  */
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
+  stripe: zod
+    .object({
+      status: zod.enum(["initializing", "ready", "failed"]),
+      error: zod.string().optional(),
+    })
+    .optional(),
 });
 
 /**

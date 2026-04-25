@@ -1,12 +1,12 @@
-import { useGetAdminStats, useListAdminOrders, useListProducts, useListCustomers } from "@workspace/api-client-react";
-import type { Product } from "@workspace/api-client-react";
+import { useGetAdminStats, useListAdminOrders, useListProducts, useListCustomers, useHealthCheck, getHealthCheckQueryKey, ApiError } from "@workspace/api-client-react";
+import type { Product, HealthStatus } from "@workspace/api-client-react";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Users, ShoppingBag, DollarSign, Package, ExternalLink, Info } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Users, ShoppingBag, DollarSign, Package, ExternalLink, Info, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 
 export function Admin() {
@@ -14,6 +14,24 @@ export function Admin() {
   const { data: orders, isLoading: ordersLoading } = useListAdminOrders();
   const { data: products, isLoading: productsLoading } = useListProducts();
   const { data: customers, isLoading: customersLoading } = useListCustomers();
+  const { data: health, error: healthError } = useHealthCheck({
+    query: {
+      retry: false,
+      refetchOnWindowFocus: false,
+      queryKey: getHealthCheckQueryKey(),
+    },
+  });
+
+  const healthBody: HealthStatus | undefined =
+    health ??
+    (healthError instanceof ApiError &&
+    healthError.data &&
+    typeof healthError.data === "object"
+      ? (healthError.data as HealthStatus)
+      : undefined);
+
+  const stripeFailed = healthBody?.stripe?.status === "failed";
+  const stripeError = healthBody?.stripe?.error;
 
   if (statsLoading || ordersLoading || productsLoading || customersLoading) {
     return (
@@ -33,6 +51,20 @@ export function Admin() {
       </header>
 
       <div className="container mx-auto px-6 py-8">
+        {stripeFailed && (
+          <Alert variant="destructive" className="mb-8 rounded-none" data-testid="alert-stripe-failed">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Payment features unavailable</AlertTitle>
+            <AlertDescription>
+              Stripe failed to initialize, so checkout, product sync, and revenue reporting will not work until it is restored.
+              {stripeError && (
+                <span className="block mt-2 font-mono text-xs opacity-90" data-testid="text-stripe-error">
+                  {stripeError}
+                </span>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
           <Card className="rounded-none border-border shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
