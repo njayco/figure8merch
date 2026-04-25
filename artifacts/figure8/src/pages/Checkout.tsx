@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useGetCart, getGetCartQueryKey } from "@workspace/api-client-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Spinner } from "@/components/ui/spinner";
+import { ProductImage } from "@/components/ProductImage";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "");
 
@@ -270,11 +271,14 @@ export function Checkout() {
               <div className="space-y-6 mb-8 max-h-[400px] overflow-y-auto pr-2">
                 {cart.items.map((item: any) => (
                   <div key={`${item.product.id}-${item.size}`} className="flex gap-4">
-                    <div className="w-16 h-20 bg-muted shrink-0 relative">
-                      <img
+                    <div className="w-16 h-20 bg-muted shrink-0 relative overflow-hidden">
+                      <ProductImage
                         src={item.product.imageUrl}
                         alt={item.product.name}
-                        className="w-full h-full object-cover"
+                        productId={item.product.id}
+                        className="gap-1 p-1 text-center"
+                        placeholderIconClassName="h-5 w-5"
+                        placeholderLabelClassName="text-[8px] leading-tight tracking-wider"
                       />
                       <span className="absolute -top-2 -right-2 bg-foreground text-background text-xs w-5 h-5 rounded-full flex items-center justify-center font-medium">
                         {item.quantity}

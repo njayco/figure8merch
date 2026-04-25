@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useGetCart, getGetCartQueryKey, useUpdateCartItem, useRemoveFromCart } from "@workspace/api-client-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Spinner } from "@/components/ui/spinner";
+import { ProductImage } from "@/components/ProductImage";
 import { useQueryClient } from "@tanstack/react-query";
 
 export function Cart() {
@@ -87,10 +88,10 @@ export function Cart() {
               <div key={`${item.product.id}-${item.size}`} className="flex flex-col sm:flex-row gap-6 border-b border-border pb-8">
                 {/* Image */}
                 <Link href={`/shop/${item.product.id}`} className="w-full sm:w-32 aspect-[3/4] bg-muted shrink-0 block">
-                  <img 
-                    src={item.product.imageUrl} 
-                    alt={item.product.name} 
-                    className="w-full h-full object-cover"
+                  <ProductImage
+                    src={item.product.imageUrl}
+                    alt={item.product.name}
+                    productId={item.product.id}
                   />
                 </Link>
 

@@ -6,6 +6,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { useToast } from "@/hooks/use-toast";
 import { useGetProduct, getGetProductQueryKey, useAddToCart, getGetCartQueryKey, useAddToWishlist, useGetWishlist, getGetWishlistQueryKey, useRemoveFromWishlist } from "@workspace/api-client-react";
 import { Spinner } from "@/components/ui/spinner";
+import { ProductImage } from "@/components/ProductImage";
 import { useAuth } from "@/hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
@@ -132,10 +133,10 @@ export function ProductDetail() {
           
           {/* Image */}
           <div className="bg-muted aspect-[3/4] relative">
-            <img 
-              src={product.imageUrl} 
-              alt={product.name} 
-              className="w-full h-full object-cover object-center"
+            <ProductImage
+              src={product.imageUrl}
+              alt={product.name}
+              productId={product.id}
             />
           </div>
 
