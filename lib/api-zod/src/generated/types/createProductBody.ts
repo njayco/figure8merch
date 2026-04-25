@@ -14,5 +14,4 @@ export interface CreateProductBody {
   category: string;
   sizes: string[];
   isFeatured?: boolean;
-  stock?: number;
 }

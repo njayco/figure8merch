@@ -70,7 +70,6 @@ export interface Product {
   category: string;
   sizes: string[];
   isFeatured: boolean;
-  stock: number;
   createdAt: string;
   /** Stripe price ID (price_...) */
   stripePriceId: string;
@@ -84,7 +83,6 @@ export interface CreateProductBody {
   category: string;
   sizes: string[];
   isFeatured?: boolean;
-  stock?: number;
 }
 
 export interface CartItem {

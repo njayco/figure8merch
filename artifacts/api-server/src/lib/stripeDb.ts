@@ -136,6 +136,11 @@ export async function countActiveStripeProducts(): Promise<number> {
   return Number(rows[0]?.count ?? 0);
 }
 
+function parseSizes(raw: string | undefined): string[] {
+  if (!raw || raw.trim() === "") return [];
+  return raw.split(",").map((s) => s.trim()).filter(Boolean);
+}
+
 export function toProductShape(p: StripeProductRow) {
   return {
     id: p.id,
@@ -144,9 +149,8 @@ export function toProductShape(p: StripeProductRow) {
     price: p.unit_amount != null ? p.unit_amount / 100 : 0,
     imageUrl: Array.isArray(p.images) && p.images.length > 0 ? p.images[0] : "",
     category: p.metadata?.category ?? "other",
-    sizes: ["XS", "S", "M", "L", "XL"],
+    sizes: parseSizes(p.metadata?.sizes),
     isFeatured: p.metadata?.featured === "true",
-    stock: 999,
     createdAt: p.created ? new Date(p.created * 1000) : new Date(),
     stripePriceId: p.price_id ?? "",
   };

@@ -120,7 +120,7 @@ export function Cart() {
                       <button 
                         className="px-3 py-2 hover:bg-muted transition-colors"
                         onClick={() => handleUpdateQuantity(item.product.id, item.size, item.quantity + 1)}
-                        disabled={updateCartItem.isPending || item.quantity >= item.product.stock}
+                        disabled={updateCartItem.isPending}
                       >
                         <Plus className="h-4 w-4" />
                       </button>

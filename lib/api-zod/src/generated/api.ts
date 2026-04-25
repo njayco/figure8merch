@@ -73,7 +73,6 @@ export const ListProductsResponseItem = zod.object({
   category: zod.string(),
   sizes: zod.array(zod.string()),
   isFeatured: zod.boolean(),
-  stock: zod.number(),
   createdAt: zod.coerce.date(),
   stripePriceId: zod.string().describe("Stripe price ID (price_...)"),
 });
@@ -90,7 +89,6 @@ export const CreateProductBody = zod.object({
   category: zod.string(),
   sizes: zod.array(zod.string()),
   isFeatured: zod.boolean().optional(),
-  stock: zod.number().optional(),
 });
 
 /**
@@ -109,7 +107,6 @@ export const GetProductResponse = zod.object({
   category: zod.string(),
   sizes: zod.array(zod.string()),
   isFeatured: zod.boolean(),
-  stock: zod.number(),
   createdAt: zod.coerce.date(),
   stripePriceId: zod.string().describe("Stripe price ID (price_...)"),
 });
@@ -129,7 +126,6 @@ export const UpdateProductBody = zod.object({
   category: zod.string(),
   sizes: zod.array(zod.string()),
   isFeatured: zod.boolean().optional(),
-  stock: zod.number().optional(),
 });
 
 export const UpdateProductResponse = zod.object({
@@ -141,7 +137,6 @@ export const UpdateProductResponse = zod.object({
   category: zod.string(),
   sizes: zod.array(zod.string()),
   isFeatured: zod.boolean(),
-  stock: zod.number(),
   createdAt: zod.coerce.date(),
   stripePriceId: zod.string().describe("Stripe price ID (price_...)"),
 });
@@ -165,7 +160,6 @@ export const ListFeaturedProductsResponseItem = zod.object({
   category: zod.string(),
   sizes: zod.array(zod.string()),
   isFeatured: zod.boolean(),
-  stock: zod.number(),
   createdAt: zod.coerce.date(),
   stripePriceId: zod.string().describe("Stripe price ID (price_...)"),
 });
@@ -188,7 +182,6 @@ export const GetCartResponse = zod.object({
         category: zod.string(),
         sizes: zod.array(zod.string()),
         isFeatured: zod.boolean(),
-        stock: zod.number(),
         createdAt: zod.coerce.date(),
         stripePriceId: zod.string().describe("Stripe price ID (price_...)"),
       }),
@@ -221,7 +214,6 @@ export const AddToCartResponse = zod.object({
         category: zod.string(),
         sizes: zod.array(zod.string()),
         isFeatured: zod.boolean(),
-        stock: zod.number(),
         createdAt: zod.coerce.date(),
         stripePriceId: zod.string().describe("Stripe price ID (price_...)"),
       }),
@@ -257,7 +249,6 @@ export const UpdateCartItemResponse = zod.object({
         category: zod.string(),
         sizes: zod.array(zod.string()),
         isFeatured: zod.boolean(),
-        stock: zod.number(),
         createdAt: zod.coerce.date(),
         stripePriceId: zod.string().describe("Stripe price ID (price_...)"),
       }),
@@ -289,7 +280,6 @@ export const RemoveFromCartResponse = zod.object({
         category: zod.string(),
         sizes: zod.array(zod.string()),
         isFeatured: zod.boolean(),
-        stock: zod.number(),
         createdAt: zod.coerce.date(),
         stripePriceId: zod.string().describe("Stripe price ID (price_...)"),
       }),
@@ -313,7 +303,6 @@ export const GetWishlistResponseItem = zod.object({
   category: zod.string(),
   sizes: zod.array(zod.string()),
   isFeatured: zod.boolean(),
-  stock: zod.number(),
   createdAt: zod.coerce.date(),
   stripePriceId: zod.string().describe("Stripe price ID (price_...)"),
 });

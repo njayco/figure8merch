@@ -57,7 +57,8 @@ export function ProductDetail() {
   }
 
   const handleAddToCart = () => {
-    if (!selectedSize) {
+    const hasSizes = product?.sizes && product.sizes.length > 0;
+    if (hasSizes && !selectedSize) {
       toast({
         variant: "destructive",
         title: "Please select a size",
@@ -75,13 +76,15 @@ export function ProductDetail() {
     }
 
     addToCart.mutate(
-      { data: { productId: product.id, quantity: 1, size: selectedSize } },
+      { data: { productId: product.id, quantity: 1, size: selectedSize ?? "" } },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetCartQueryKey() });
           toast({
             title: "Added to cart",
-            description: `${product.name} (${selectedSize}) has been added to your cart.`,
+            description: selectedSize
+              ? `${product.name} (${selectedSize}) has been added to your cart.`
+              : `${product.name} has been added to your cart.`,
           });
         }
       }
@@ -134,11 +137,6 @@ export function ProductDetail() {
               alt={product.name} 
               className="w-full h-full object-cover object-center"
             />
-            {product.stock === 0 && (
-              <div className="absolute top-4 left-4 bg-destructive text-destructive-foreground px-3 py-1 text-sm uppercase tracking-wider font-bold shadow-md">
-                Sold Out
-              </div>
-            )}
           </div>
 
           {/* Details */}
@@ -153,36 +151,38 @@ export function ProductDetail() {
             </div>
 
             {/* Size Selector */}
-            <div className="mb-10">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-sm font-bold uppercase tracking-wider">Size</h3>
-                <button className="text-xs text-muted-foreground uppercase tracking-widest hover:text-primary transition-colors underline underline-offset-4">
-                  Size Guide
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-3">
-                {product.sizes.map((size: string) => (
-                  <button
-                    key={size}
-                    onClick={() => setSelectedSize(size)}
-                    className={cn(
-                      "h-12 min-w-[3rem] px-4 border flex items-center justify-center text-sm font-medium transition-all",
-                      selectedSize === size 
-                        ? "border-primary bg-primary text-primary-foreground" 
-                        : "border-border hover:border-primary hover:text-primary bg-transparent text-foreground"
-                    )}
-                  >
-                    {size}
+            {product.sizes.length > 0 && (
+              <div className="mb-10">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-sm font-bold uppercase tracking-wider">Size</h3>
+                  <button className="text-xs text-muted-foreground uppercase tracking-widest hover:text-primary transition-colors underline underline-offset-4">
+                    Size Guide
                   </button>
-                ))}
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  {product.sizes.map((size: string) => (
+                    <button
+                      key={size}
+                      onClick={() => setSelectedSize(size)}
+                      className={cn(
+                        "h-12 min-w-[3rem] px-4 border flex items-center justify-center text-sm font-medium transition-all",
+                        selectedSize === size 
+                          ? "border-primary bg-primary text-primary-foreground" 
+                          : "border-border hover:border-primary hover:text-primary bg-transparent text-foreground"
+                      )}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Actions */}
             <div className="flex gap-4 mb-12">
               <Button 
                 className="flex-1 rounded-none uppercase tracking-widest font-bold h-14"
-                disabled={product.stock === 0 || addToCart.isPending}
+                disabled={addToCart.isPending}
                 onClick={handleAddToCart}
               >
                 {addToCart.isPending ? (
@@ -190,7 +190,7 @@ export function ProductDetail() {
                 ) : (
                   <ShoppingBag className="h-5 w-5 mr-2" />
                 )}
-                {product.stock === 0 ? "Out of Stock" : "Add to Cart"}
+                Add to Cart
               </Button>
               
               <Button 

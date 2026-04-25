@@ -87,16 +87,6 @@ export function ProductCard({ product }: ProductCardProps) {
               Featured
             </span>
           )}
-          {product.stock < 10 && product.stock > 0 && (
-            <span className="bg-background text-foreground text-xs uppercase tracking-wider px-2 py-1 shadow-sm">
-              Low Stock
-            </span>
-          )}
-          {product.stock === 0 && (
-            <span className="bg-destructive text-destructive-foreground text-xs uppercase tracking-wider px-2 py-1 shadow-sm">
-              Sold Out
-            </span>
-          )}
         </div>
 
         {/* Wishlist Button */}

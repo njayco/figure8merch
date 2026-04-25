@@ -16,7 +16,6 @@ export interface Product {
   category: string;
   sizes: string[];
   isFeatured: boolean;
-  stock: number;
   createdAt: Date;
   /** Stripe price ID (price_...) */
   stripePriceId: string;

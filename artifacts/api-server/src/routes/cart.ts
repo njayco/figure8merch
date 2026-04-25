@@ -31,7 +31,6 @@ async function getCartForUser(userId: number) {
             category: "other",
             sizes: [],
             isFeatured: false,
-            stock: 0,
             createdAt: new Date(),
             stripePriceId: "",
           },
