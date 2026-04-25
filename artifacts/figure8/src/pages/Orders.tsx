@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useListOrders, getListOrdersQueryKey } from "@workspace/api-client-react";
 import type { Order, OrderItem } from "@workspace/api-client-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -127,31 +128,75 @@ function OrderProgress({ status }: { status: string }) {
   );
 }
 
+function carrierTrackingUrl(carrier: string | null | undefined, trackingNumber: string): string | null {
+  if (!carrier) return null;
+  const tn = encodeURIComponent(trackingNumber);
+  switch (carrier.trim().toLowerCase()) {
+    case "ups":
+      return `https://www.ups.com/track?tracknum=${tn}`;
+    case "usps":
+      return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${tn}`;
+    case "fedex":
+      return `https://www.fedex.com/fedextrack/?trknbr=${tn}`;
+    case "dhl":
+      return `https://www.dhl.com/us-en/home/tracking/tracking-express.html?submit=1&tracking-id=${tn}`;
+    default:
+      return null;
+  }
+}
+
 function ShippingDetails({ order }: { order: Order }) {
   if (order.status === "cancelled") return null;
 
-  const lines: Array<{ label: string; value: string }> = [];
+  type Line = { label: string; node: ReactNode };
+  const lines: Line[] = [];
 
   if (order.shippedAt) {
     lines.push({
       label: "Shipped",
-      value: format(new Date(order.shippedAt), "MMM dd, yyyy"),
+      node: format(new Date(order.shippedAt), "MMM dd, yyyy"),
     });
   }
   if (order.deliveredAt) {
     lines.push({
       label: "Delivered",
-      value: format(new Date(order.deliveredAt), "MMM dd, yyyy"),
+      node: format(new Date(order.deliveredAt), "MMM dd, yyyy"),
     });
   } else if (order.estimatedDeliveryAt && order.status !== "delivered") {
     lines.push({
       label: "Estimated Delivery",
-      value: format(new Date(order.estimatedDeliveryAt), "MMM dd, yyyy"),
+      node: format(new Date(order.estimatedDeliveryAt), "MMM dd, yyyy"),
     });
   }
   if (order.carrier || order.trackingNumber) {
-    const value = [order.carrier, order.trackingNumber].filter(Boolean).join(" • ");
-    lines.push({ label: "Tracking", value });
+    const trackingUrl = order.trackingNumber
+      ? carrierTrackingUrl(order.carrier, order.trackingNumber)
+      : null;
+    lines.push({
+      label: "Tracking",
+      node: (
+        <span className="flex flex-wrap items-baseline gap-x-2">
+          {order.carrier && <span>{order.carrier}</span>}
+          {order.trackingNumber && (
+            trackingUrl ? (
+              <a
+                href={trackingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-mono text-primary underline underline-offset-2 hover:no-underline break-all"
+                data-testid={`link-tracking-${order.id}`}
+              >
+                {order.trackingNumber}
+              </a>
+            ) : (
+              <span className="font-mono break-all" data-testid={`text-tracking-${order.id}`}>
+                {order.trackingNumber}
+              </span>
+            )
+          )}
+        </span>
+      ),
+    });
   }
 
   if (lines.length === 0) return null;
@@ -163,7 +208,7 @@ function ShippingDetails({ order }: { order: Order }) {
           <p className="text-muted-foreground uppercase tracking-wider text-xs mb-1">
             {line.label}
           </p>
-          <p className="font-medium">{line.value}</p>
+          <p className="font-medium">{line.node}</p>
         </div>
       ))}
     </div>

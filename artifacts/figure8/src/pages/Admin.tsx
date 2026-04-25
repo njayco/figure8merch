@@ -1,5 +1,6 @@
 import { useGetAdminStats, useListAdminOrders, useListProducts, useListCustomers, useUpdateOrderStatus, useHealthCheck, getListAdminOrdersQueryKey, getGetAdminStatsQueryKey, getHealthCheckQueryKey, ApiError } from "@workspace/api-client-react";
 import type { Product, AdminOrder, UpdateOrderStatusBodyStatus, HealthStatus } from "@workspace/api-client-react";
+import { useState } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -7,7 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Users, ShoppingBag, DollarSign, Package, ExternalLink, Info, AlertTriangle, TrendingUp } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Users, ShoppingBag, DollarSign, Package, ExternalLink, Info, AlertTriangle, TrendingUp, Pencil } from "lucide-react";
 import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -28,20 +32,172 @@ const STATUS_BADGE_STYLES: Record<string, string> = {
   cancelled: "bg-red-100 text-red-800",
 };
 
+const CARRIER_OPTIONS = ["UPS", "USPS", "FedEx", "DHL", "Other"] as const;
+type CarrierOption = (typeof CARRIER_OPTIONS)[number];
+
+function isCarrierOption(value: string | null | undefined): value is CarrierOption {
+  return !!value && (CARRIER_OPTIONS as readonly string[]).includes(value);
+}
+
+type TrackingDialogProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  order: AdminOrder;
+  pendingStatus: UpdateOrderStatusBodyStatus | null;
+  isPending: boolean;
+  onConfirm: (data: {
+    status: UpdateOrderStatusBodyStatus;
+    carrier: string | null;
+    trackingNumber: string | null;
+  }) => void;
+};
+
+function TrackingDialog({
+  open,
+  onOpenChange,
+  order,
+  pendingStatus,
+  isPending,
+  onConfirm,
+}: TrackingDialogProps) {
+  const initialCarrier: CarrierOption = isCarrierOption(order.carrier) ? order.carrier : "UPS";
+  const initialOther = order.carrier && !isCarrierOption(order.carrier) ? order.carrier : "";
+  const initialCarrierChoice: CarrierOption =
+    order.carrier && !isCarrierOption(order.carrier) ? "Other" : initialCarrier;
+
+  const [carrierChoice, setCarrierChoice] = useState<CarrierOption>(initialCarrierChoice);
+  const [otherCarrier, setOtherCarrier] = useState(initialOther);
+  const [trackingNumber, setTrackingNumber] = useState(order.trackingNumber ?? "");
+
+  const isEdit = pendingStatus === null;
+  const targetStatus: UpdateOrderStatusBodyStatus =
+    pendingStatus ?? (order.status as UpdateOrderStatusBodyStatus);
+
+  const handleOpenChange = (next: boolean) => {
+    if (next) {
+      setCarrierChoice(initialCarrierChoice);
+      setOtherCarrier(initialOther);
+      setTrackingNumber(order.trackingNumber ?? "");
+    }
+    onOpenChange(next);
+  };
+
+  const resolvedCarrier =
+    carrierChoice === "Other" ? otherCarrier.trim() : carrierChoice;
+  const trimmedTracking = trackingNumber.trim();
+  const canConfirm = !!resolvedCarrier && !!trimmedTracking;
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="rounded-none sm:max-w-md" data-testid="dialog-tracking">
+        <DialogHeader>
+          <DialogTitle className="font-serif">
+            {isEdit ? "Edit tracking info" : "Mark order as shipped"}
+          </DialogTitle>
+          <DialogDescription>
+            Order #{order.id} · {order.customerName}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="space-y-2">
+            <Label htmlFor={`carrier-${order.id}`} className="uppercase tracking-wider text-xs">
+              Carrier
+            </Label>
+            <Select
+              value={carrierChoice}
+              onValueChange={(v) => setCarrierChoice(v as CarrierOption)}
+            >
+              <SelectTrigger
+                id={`carrier-${order.id}`}
+                className="rounded-none"
+                data-testid="select-carrier"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CARRIER_OPTIONS.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    {c}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {carrierChoice === "Other" && (
+              <Input
+                placeholder="Carrier name"
+                value={otherCarrier}
+                onChange={(e) => setOtherCarrier(e.target.value)}
+                className="rounded-none"
+                data-testid="input-carrier-other"
+              />
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor={`tracking-${order.id}`} className="uppercase tracking-wider text-xs">
+              Tracking number
+            </Label>
+            <Input
+              id={`tracking-${order.id}`}
+              value={trackingNumber}
+              onChange={(e) => setTrackingNumber(e.target.value)}
+              placeholder="e.g. 1Z999AA10123456784"
+              className="rounded-none font-mono"
+              data-testid="input-tracking-number"
+            />
+          </div>
+        </div>
+        <DialogFooter className="gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="rounded-none"
+            onClick={() => onOpenChange(false)}
+            disabled={isPending}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            className="rounded-none uppercase tracking-widest text-xs"
+            disabled={!canConfirm || isPending}
+            onClick={() =>
+              onConfirm({
+                status: targetStatus,
+                carrier: resolvedCarrier || null,
+                trackingNumber: trimmedTracking || null,
+              })
+            }
+            data-testid="button-confirm-tracking"
+          >
+            {isPending ? "Saving…" : isEdit ? "Save changes" : "Mark shipped"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function OrderStatusControl({ order }: { order: AdminOrder }) {
   const queryClient = useQueryClient();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<UpdateOrderStatusBodyStatus | null>(null);
+
   const { mutate, isPending } = useUpdateOrderStatus({
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListAdminOrdersQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetAdminStatsQueryKey() });
-        toast.success("Order status updated");
+        toast.success("Order updated");
+        setDialogOpen(false);
+        setPendingStatus(null);
       },
       onError: (err) => {
         toast.error(err instanceof Error ? err.message : "Failed to update order");
       },
     },
   });
+
+  const canEditTracking = order.status === "shipped" || order.status === "delivered";
 
   return (
     <div className="flex items-center justify-end gap-2">
@@ -57,10 +213,16 @@ function OrderStatusControl({ order }: { order: AdminOrder }) {
         disabled={isPending}
         onValueChange={(value) => {
           if (value === order.status) return;
-          mutate({ id: order.id, data: { status: value as UpdateOrderStatusBodyStatus } });
+          const next = value as UpdateOrderStatusBodyStatus;
+          if (next === "shipped") {
+            setPendingStatus("shipped");
+            setDialogOpen(true);
+            return;
+          }
+          mutate({ id: order.id, data: { status: next } });
         }}
       >
-        <SelectTrigger className="h-8 w-[140px] rounded-none text-xs">
+        <SelectTrigger className="h-8 w-[140px] rounded-none text-xs" data-testid={`select-status-${order.id}`}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -71,6 +233,39 @@ function OrderStatusControl({ order }: { order: AdminOrder }) {
           ))}
         </SelectContent>
       </Select>
+      {canEditTracking && (
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="h-8 w-8 rounded-none"
+          title="Edit tracking info"
+          onClick={() => {
+            setPendingStatus(null);
+            setDialogOpen(true);
+          }}
+          data-testid={`button-edit-tracking-${order.id}`}
+        >
+          <Pencil className="h-3.5 w-3.5" />
+          <span className="sr-only">Edit tracking info</span>
+        </Button>
+      )}
+      <TrackingDialog
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) setPendingStatus(null);
+        }}
+        order={order}
+        pendingStatus={pendingStatus}
+        isPending={isPending}
+        onConfirm={({ status, carrier, trackingNumber }) => {
+          mutate({
+            id: order.id,
+            data: { status, carrier, trackingNumber },
+          });
+        }}
+      />
     </div>
   );
 }
