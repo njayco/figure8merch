@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import fsLogo from "@assets/IMG_1811_1777157850143.jpeg";
 
 interface SplashScreenProps {
   onComplete: () => void;
@@ -48,6 +49,33 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
             transition: phase === "hold" || phase === "exit" ? "width 2.2s ease-out" : "none",
             width: phase === "enter" ? "0%" : "100%",
           }}
+        />
+      </div>
+
+      {/* FS logo reveal */}
+      <div
+        style={{
+          marginBottom: "1.75rem",
+          overflow: "hidden",
+          clipPath: phase === "enter"
+            ? "inset(100% 0 0 0)"
+            : "inset(0% 0 0 0)",
+          transition: phase !== "enter"
+            ? "clip-path 0.9s cubic-bezier(0.76, 0, 0.24, 1)"
+            : "none",
+        }}
+      >
+        <img
+          src={fsLogo}
+          alt="FS logo"
+          style={{
+            display: "block",
+            width: "clamp(3.5rem, 8vw, 6rem)",
+            height: "clamp(3.5rem, 8vw, 6rem)",
+            objectFit: "contain",
+            userSelect: "none",
+          }}
+          draggable={false}
         />
       </div>
 
