@@ -2,6 +2,7 @@ import { useGetAdminStats, useListAdminOrders, useListProducts, useListCustomers
 import type { Product, ProductVariant, AdminOrder, UpdateOrderStatusBodyStatus, HealthStatus } from "@workspace/api-client-react";
 import { useState } from "react";
 import { NewProductDialog } from "@/components/NewProductDialog";
+import { ProductImage } from "@/components/ProductImage";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -514,6 +515,7 @@ export function Admin() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50 hover:bg-muted/50">
+                    <TableHead className="uppercase tracking-wider font-bold w-[72px]">Photo</TableHead>
                     <TableHead className="uppercase tracking-wider font-bold">Product</TableHead>
                     <TableHead className="uppercase tracking-wider font-bold">Category</TableHead>
                     <TableHead className="uppercase tracking-wider font-bold">Price</TableHead>
@@ -528,15 +530,20 @@ export function Admin() {
                   {products?.map((product: Product) => (
                     <TableRow key={product.id} data-testid={`row-product-${product.id}`}>
                       <TableCell>
-                        <div className="flex items-center gap-3">
-                          <img
+                        <div
+                          className="h-12 w-12 overflow-hidden border border-border bg-muted shrink-0"
+                          data-testid={`thumb-product-${product.id}`}
+                        >
+                          <ProductImage
                             src={product.imageUrl}
                             alt={product.name}
-                            className="h-10 w-8 object-cover bg-muted shrink-0"
-                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                            productId={product.id}
+                            compact
                           />
-                          <span className="font-medium">{product.name}</span>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-medium">{product.name}</span>
                       </TableCell>
                       <TableCell className="capitalize">{product.category}</TableCell>
                       <TableCell>${product.price.toFixed(2)}</TableCell>
@@ -593,7 +600,7 @@ export function Admin() {
                   ))}
                   {(!products || products.length === 0) && (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No products found.</TableCell>
+                      <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">No products found.</TableCell>
                     </TableRow>
                   )}
                 </TableBody>

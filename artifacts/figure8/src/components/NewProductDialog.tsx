@@ -347,6 +347,14 @@ export function NewProductDialog() {
                 />
               )}
             </div>
+            <p
+              className="text-xs text-muted-foreground"
+              data-testid="text-photo-hint"
+            >
+              Optional — you can add a photo later, but products with a photo
+              look much better in the store and are easier to spot in the admin
+              list. Products without one show a "No photo" placeholder.
+            </p>
           </div>
 
           <div className="space-y-2">
