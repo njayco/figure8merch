@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { Heart } from "lucide-react";
+import { Heart, ImageOff } from "lucide-react";
 import type { Product } from "@workspace/api-client-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -17,6 +17,8 @@ export function ProductCard({ product }: ProductCardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isHovered, setIsHovered] = useState(false);
+  const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
+  const showPlaceholder = !product.imageUrl || failedImageUrl === product.imageUrl;
 
   const { data: wishlist } = useGetWishlist({
     query: {
@@ -74,11 +76,24 @@ export function ProductCard({ product }: ProductCardProps) {
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        <img 
-          src={product.imageUrl} 
-          alt={product.name} 
-          className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
-        />
+        {showPlaceholder ? (
+          <div
+            data-testid={`product-image-placeholder-${product.id}`}
+            className="w-full h-full flex flex-col items-center justify-center gap-2 bg-muted text-muted-foreground"
+            role="img"
+            aria-label={`${product.name} image unavailable`}
+          >
+            <ImageOff className="h-10 w-10" strokeWidth={1.25} />
+            <span className="text-xs uppercase tracking-widest">Image unavailable</span>
+          </div>
+        ) : (
+          <img
+            src={product.imageUrl}
+            alt={product.name}
+            onError={() => setFailedImageUrl(product.imageUrl)}
+            className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
+          />
+        )}
         
         {/* Badges */}
         <div className="absolute top-4 left-4 flex flex-col gap-2">
