@@ -5,6 +5,7 @@ import { CreateOrderBody, UpdateOrderStatusBody } from "@workspace/api-zod";
 import { requireAuth, requireAdmin, type AuthRequest } from "../middlewares/auth";
 import { getStripeProductSummaries, countActiveStripeProducts } from "../lib/stripeDb";
 import { getUncachableStripeClient } from "../lib/stripeClient";
+import { sendShippedEmail, sendDeliveredEmail } from "../lib/orderEmails";
 
 const router: IRouter = Router();
 
@@ -219,6 +220,15 @@ router.patch("/admin/orders/:id", requireAdmin, async (req, res): Promise<void> 
   if (trackingNumber !== undefined) updates.trackingNumber = trackingNumber;
   if (carrier !== undefined) updates.carrier = carrier;
 
+  // Decide whether to send a transactional email. The notifiedShippedAt /
+  // notifiedDeliveredAt flags are our sole idempotency check: stamped only
+  // after a successful send, so re-saving the same status after a successful
+  // send is a no-op (no duplicate), but re-saving after a failed send WILL
+  // retry — which is what the admin would expect when fixing a transient
+  // delivery problem.
+  const shouldSendShipped = status === "shipped" && !existing.notifiedShippedAt;
+  const shouldSendDelivered = status === "delivered" && !existing.notifiedDeliveredAt;
+
   // Auto-stamp shipped/delivered timestamps when transitioning into those states
   if (status === "shipped" && !existing.shippedAt) {
     updates.shippedAt = now;
@@ -248,6 +258,59 @@ router.patch("/admin/orders/:id", requireAdmin, async (req, res): Promise<void> 
   if (!user) {
     res.status(500).json({ error: "Order user not found" });
     return;
+  }
+
+  // Fire-and-await transactional emails on real transitions only. We mark the
+  // notified-at flag only after a successful send so a transient email failure
+  // can be retried by re-applying the same status from the dashboard.
+  if (shouldSendShipped) {
+    const sent = await sendShippedEmail(
+      {
+        id: updated.id,
+        total: updated.total,
+        trackingNumber: updated.trackingNumber,
+        carrier: updated.carrier,
+        shippedAt: updated.shippedAt,
+        estimatedDeliveryAt: updated.estimatedDeliveryAt,
+        shippingAddress: updated.shippingAddress,
+        items: updated.items,
+      },
+      { email: user.email, name: user.name },
+    );
+    if (sent) {
+      const [stamped] = await db
+        .update(ordersTable)
+        .set({ notifiedShippedAt: new Date() })
+        .where(eq(ordersTable.id, id))
+        .returning();
+      res.json(toAdminOrderShape(stamped, user));
+      return;
+    }
+  }
+
+  if (shouldSendDelivered) {
+    const sent = await sendDeliveredEmail(
+      {
+        id: updated.id,
+        total: updated.total,
+        trackingNumber: updated.trackingNumber,
+        carrier: updated.carrier,
+        shippedAt: updated.shippedAt,
+        estimatedDeliveryAt: updated.estimatedDeliveryAt,
+        shippingAddress: updated.shippingAddress,
+        items: updated.items,
+      },
+      { email: user.email, name: user.name },
+    );
+    if (sent) {
+      const [stamped] = await db
+        .update(ordersTable)
+        .set({ notifiedDeliveredAt: new Date() })
+        .where(eq(ordersTable.id, id))
+        .returning();
+      res.json(toAdminOrderShape(stamped, user));
+      return;
+    }
   }
 
   res.json(toAdminOrderShape(updated, user));

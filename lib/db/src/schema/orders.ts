@@ -25,6 +25,8 @@ export const ordersTable = pgTable("orders", {
   shippedAt: timestamp("shipped_at", { withTimezone: true }),
   deliveredAt: timestamp("delivered_at", { withTimezone: true }),
   estimatedDeliveryAt: timestamp("estimated_delivery_at", { withTimezone: true }),
+  notifiedShippedAt: timestamp("notified_shipped_at", { withTimezone: true }),
+  notifiedDeliveredAt: timestamp("notified_delivered_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   unique("orders_stripe_session_unique").on(t.stripeCheckoutSessionId),

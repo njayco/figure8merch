@@ -50,6 +50,9 @@ Set via Replit Secrets before running the seed script.
 ## Database Schema
 
 Tables: `users`, `products` (legacy), `cart_items`, `wishlist`, `orders`, `order_items`, `email_signups`
+
+`orders` includes `notified_shipped_at` / `notified_delivered_at` flags used to
+dedupe transactional shipping emails (see "Transactional Email" below).
 Stripe sync schema: `stripe.products`, `stripe.prices`, `stripe.customers`, etc. (managed by `stripe-replit-sync`)
 
 **Product data source**: Shop reads from `stripe.products` + `stripe.prices` tables (not local `products` table).
@@ -71,6 +74,27 @@ Categories: sets, tops, bottoms, outerwear
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - `pnpm --filter @workspace/api-server run dev` — run API server locally
+
+## Transactional Email
+
+Powered by Resend (Replit connector). The `PATCH /api/admin/orders/:id` route
+sends two transactional emails on real status transitions:
+- "Your order has shipped" — when status flips to `shipped` (with carrier,
+  tracking #, tracking link if recognized carrier, and ETA)
+- "Your order has arrived" — when status flips to `delivered`
+
+Idempotency is enforced via `orders.notified_shipped_at` /
+`notified_delivered_at` (stamped only on successful send, so a transient
+failure can be retried by re-applying the status). Re-saving the same status
+does not send a duplicate.
+
+Setup: the store owner must verify their sending domain in the Resend
+dashboard (domain comes from the connector's configured `from_email`).
+Until verified, sends will fail with a 403 and the notification flag stays
+`NULL`; everything else (status updates, ETA stamping) still works.
+
+Code: `artifacts/api-server/src/lib/resendClient.ts`,
+`artifacts/api-server/src/lib/orderEmails.ts`.
 
 ## Important Notes
 
