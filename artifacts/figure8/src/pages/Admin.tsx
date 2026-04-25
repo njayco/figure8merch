@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Users, ShoppingBag, DollarSign, Package, ExternalLink, Info, AlertTriangle } from "lucide-react";
+import { Users, ShoppingBag, DollarSign, Package, ExternalLink, Info, AlertTriangle, TrendingUp } from "lucide-react";
 import { format } from "date-fns";
 
 export function Admin() {
@@ -104,6 +104,42 @@ export function Admin() {
             </CardContent>
           </Card>
         </div>
+
+        <Card className="rounded-none border-border shadow-sm mb-12">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-muted-foreground" />
+              <CardTitle className="text-lg font-serif">Top Selling Products</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50 hover:bg-muted/50">
+                  <TableHead className="uppercase tracking-wider font-bold">Product</TableHead>
+                  <TableHead className="uppercase tracking-wider font-bold text-right">Units Sold</TableHead>
+                  <TableHead className="uppercase tracking-wider font-bold text-right">Revenue</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {stats?.topProducts?.map((p) => (
+                  <TableRow key={p.productId}>
+                    <TableCell className="font-medium">{p.productName}</TableCell>
+                    <TableCell className="text-right">{p.totalSold}</TableCell>
+                    <TableCell className="text-right">${p.revenue.toFixed(2)}</TableCell>
+                  </TableRow>
+                ))}
+                {(!stats?.topProducts || stats.topProducts.length === 0) && (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                      No sales yet.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
 
         <Tabs defaultValue="orders" className="w-full">
           <TabsList className="w-full justify-start rounded-none border-b border-border h-auto p-0 bg-transparent mb-8">

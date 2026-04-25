@@ -968,15 +968,21 @@ components:
             type: object
             properties:
               productId:
-                type: integer
+                type: string
+                description: Stripe product ID (prod_...)
               productName:
                 type: string
               totalSold:
                 type: integer
+                description: Total units sold across all orders
+              revenue:
+                type: number
+                description: Total revenue contributed by this product
             required:
               - productId
               - productName
               - totalSold
+              - revenue
       required:
         - totalRevenue
         - stripeRevenue

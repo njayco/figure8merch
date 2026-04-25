@@ -506,9 +506,12 @@ export const GetAdminStatsResponse = zod.object({
   ),
   topProducts: zod.array(
     zod.object({
-      productId: zod.number(),
+      productId: zod.string().describe("Stripe product ID (prod_...)"),
       productName: zod.string(),
-      totalSold: zod.number(),
+      totalSold: zod.number().describe("Total units sold across all orders"),
+      revenue: zod
+        .number()
+        .describe("Total revenue contributed by this product"),
     }),
   ),
 });

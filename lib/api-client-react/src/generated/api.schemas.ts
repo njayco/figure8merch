@@ -187,9 +187,13 @@ export interface AdminOrder {
 }
 
 export type AdminStatsTopProductsItem = {
-  productId: number;
+  /** Stripe product ID (prod_...) */
+  productId: string;
   productName: string;
+  /** Total units sold across all orders */
   totalSold: number;
+  /** Total revenue contributed by this product */
+  revenue: number;
 };
 
 export interface AdminStats {

@@ -172,6 +172,34 @@ router.get("/admin/stats", requireAdmin, async (_req, res): Promise<void> => {
   const [totalCustomers] = await db.select({ count: sql<number>`COUNT(*)` }).from(usersTable);
   const totalProducts = await countActiveStripeProducts();
 
+  // Top 5 products by total units sold, computed by expanding the order items JSONB array.
+  // Revenue is summed as price * quantity per line item.
+  const topProductsRows = await db.execute<{
+    product_id: string;
+    product_name: string;
+    total_sold: string | number;
+    revenue: string | number;
+  }>(sql`
+    SELECT
+      item->>'productId' AS product_id,
+      MAX(item->>'productName') AS product_name,
+      SUM((item->>'quantity')::int) AS total_sold,
+      SUM((item->>'price')::numeric * (item->>'quantity')::int) AS revenue
+    FROM ${ordersTable},
+      jsonb_array_elements(${ordersTable.items}) AS item
+    WHERE item->>'productId' IS NOT NULL
+    GROUP BY item->>'productId'
+    ORDER BY total_sold DESC, revenue DESC
+    LIMIT 5
+  `);
+
+  const topProducts = topProductsRows.rows.map((r) => ({
+    productId: r.product_id,
+    productName: r.product_name,
+    totalSold: Number(r.total_sold ?? 0),
+    revenue: Number(r.revenue ?? 0),
+  }));
+
   const recentRows = await db
     .select({ order: ordersTable, user: usersTable })
     .from(ordersTable)
@@ -208,7 +236,7 @@ router.get("/admin/stats", requireAdmin, async (_req, res): Promise<void> => {
     totalCustomers: Number(totalCustomers?.count ?? 0),
     totalProducts,
     recentOrders,
-    topProducts: [],
+    topProducts,
   });
 });
 
