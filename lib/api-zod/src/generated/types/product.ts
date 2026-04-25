@@ -7,7 +7,8 @@
  */
 
 export interface Product {
-  id: number;
+  /** Stripe product ID (prod_...) */
+  id: string;
   name: string;
   description: string;
   price: number;
@@ -17,4 +18,6 @@ export interface Product {
   isFeatured: boolean;
   stock: number;
   createdAt: Date;
+  /** Stripe price ID (price_...) */
+  stripePriceId: string;
 }

@@ -22,6 +22,10 @@ import type {
   AuthResponse,
   Cart,
   CartItemBody,
+  CheckoutSessionResponse,
+  CompleteOrderBody,
+  CompleteOrderResponse,
+  CreateCheckoutSessionBody,
   CreateOrderBody,
   CreateProductBody,
   EmailSignupBody,
@@ -539,12 +543,12 @@ export const useCreateProduct = <
 /**
  * @summary Get a product by ID
  */
-export const getGetProductUrl = (id: number) => {
+export const getGetProductUrl = (id: string) => {
   return `/api/products/${id}`;
 };
 
 export const getProduct = async (
-  id: number,
+  id: string,
   options?: RequestInit,
 ): Promise<Product> => {
   return customFetch<Product>(getGetProductUrl(id), {
@@ -553,7 +557,7 @@ export const getProduct = async (
   });
 };
 
-export const getGetProductQueryKey = (id: number) => {
+export const getGetProductQueryKey = (id: string) => {
   return [`/api/products/${id}`] as const;
 };
 
@@ -561,7 +565,7 @@ export const getGetProductQueryOptions = <
   TData = Awaited<ReturnType<typeof getProduct>>,
   TError = ErrorType<ErrorResponse>,
 >(
-  id: number,
+  id: string,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof getProduct>>,
@@ -604,7 +608,7 @@ export function useGetProduct<
   TData = Awaited<ReturnType<typeof getProduct>>,
   TError = ErrorType<ErrorResponse>,
 >(
-  id: number,
+  id: string,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof getProduct>>,
@@ -626,12 +630,12 @@ export function useGetProduct<
 /**
  * @summary Update a product (admin)
  */
-export const getUpdateProductUrl = (id: number) => {
+export const getUpdateProductUrl = (id: string) => {
   return `/api/products/${id}`;
 };
 
 export const updateProduct = async (
-  id: number,
+  id: string,
   createProductBody: CreateProductBody,
   options?: RequestInit,
 ): Promise<Product> => {
@@ -650,14 +654,14 @@ export const getUpdateProductMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof updateProduct>>,
     TError,
-    { id: number; data: BodyType<CreateProductBody> },
+    { id: string; data: BodyType<CreateProductBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof updateProduct>>,
   TError,
-  { id: number; data: BodyType<CreateProductBody> },
+  { id: string; data: BodyType<CreateProductBody> },
   TContext
 > => {
   const mutationKey = ["updateProduct"];
@@ -671,7 +675,7 @@ export const getUpdateProductMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof updateProduct>>,
-    { id: number; data: BodyType<CreateProductBody> }
+    { id: string; data: BodyType<CreateProductBody> }
   > = (props) => {
     const { id, data } = props ?? {};
 
@@ -697,14 +701,14 @@ export const useUpdateProduct = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof updateProduct>>,
     TError,
-    { id: number; data: BodyType<CreateProductBody> },
+    { id: string; data: BodyType<CreateProductBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof updateProduct>>,
   TError,
-  { id: number; data: BodyType<CreateProductBody> },
+  { id: string; data: BodyType<CreateProductBody> },
   TContext
 > => {
   return useMutation(getUpdateProductMutationOptions(options));
@@ -713,12 +717,12 @@ export const useUpdateProduct = <
 /**
  * @summary Delete a product (admin)
  */
-export const getDeleteProductUrl = (id: number) => {
+export const getDeleteProductUrl = (id: string) => {
   return `/api/products/${id}`;
 };
 
 export const deleteProduct = async (
-  id: number,
+  id: string,
   options?: RequestInit,
 ): Promise<void> => {
   return customFetch<void>(getDeleteProductUrl(id), {
@@ -734,14 +738,14 @@ export const getDeleteProductMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof deleteProduct>>,
     TError,
-    { id: number },
+    { id: string },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof deleteProduct>>,
   TError,
-  { id: number },
+  { id: string },
   TContext
 > => {
   const mutationKey = ["deleteProduct"];
@@ -755,7 +759,7 @@ export const getDeleteProductMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof deleteProduct>>,
-    { id: number }
+    { id: string }
   > = (props) => {
     const { id } = props ?? {};
 
@@ -781,14 +785,14 @@ export const useDeleteProduct = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof deleteProduct>>,
     TError,
-    { id: number },
+    { id: string },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof deleteProduct>>,
   TError,
-  { id: number },
+  { id: string },
   TContext
 > => {
   return useMutation(getDeleteProductMutationOptions(options));
@@ -1023,12 +1027,12 @@ export const useAddToCart = <
 /**
  * @summary Update cart item quantity
  */
-export const getUpdateCartItemUrl = (productId: number, size: string) => {
+export const getUpdateCartItemUrl = (productId: string, size: string) => {
   return `/api/cart/${productId}/${size}`;
 };
 
 export const updateCartItem = async (
-  productId: number,
+  productId: string,
   size: string,
   updateCartItemBody: UpdateCartItemBody,
   options?: RequestInit,
@@ -1048,14 +1052,14 @@ export const getUpdateCartItemMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof updateCartItem>>,
     TError,
-    { productId: number; size: string; data: BodyType<UpdateCartItemBody> },
+    { productId: string; size: string; data: BodyType<UpdateCartItemBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof updateCartItem>>,
   TError,
-  { productId: number; size: string; data: BodyType<UpdateCartItemBody> },
+  { productId: string; size: string; data: BodyType<UpdateCartItemBody> },
   TContext
 > => {
   const mutationKey = ["updateCartItem"];
@@ -1069,7 +1073,7 @@ export const getUpdateCartItemMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof updateCartItem>>,
-    { productId: number; size: string; data: BodyType<UpdateCartItemBody> }
+    { productId: string; size: string; data: BodyType<UpdateCartItemBody> }
   > = (props) => {
     const { productId, size, data } = props ?? {};
 
@@ -1095,14 +1099,14 @@ export const useUpdateCartItem = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof updateCartItem>>,
     TError,
-    { productId: number; size: string; data: BodyType<UpdateCartItemBody> },
+    { productId: string; size: string; data: BodyType<UpdateCartItemBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof updateCartItem>>,
   TError,
-  { productId: number; size: string; data: BodyType<UpdateCartItemBody> },
+  { productId: string; size: string; data: BodyType<UpdateCartItemBody> },
   TContext
 > => {
   return useMutation(getUpdateCartItemMutationOptions(options));
@@ -1111,12 +1115,12 @@ export const useUpdateCartItem = <
 /**
  * @summary Remove item from cart
  */
-export const getRemoveFromCartUrl = (productId: number, size: string) => {
+export const getRemoveFromCartUrl = (productId: string, size: string) => {
   return `/api/cart/${productId}/${size}`;
 };
 
 export const removeFromCart = async (
-  productId: number,
+  productId: string,
   size: string,
   options?: RequestInit,
 ): Promise<Cart> => {
@@ -1133,14 +1137,14 @@ export const getRemoveFromCartMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof removeFromCart>>,
     TError,
-    { productId: number; size: string },
+    { productId: string; size: string },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof removeFromCart>>,
   TError,
-  { productId: number; size: string },
+  { productId: string; size: string },
   TContext
 > => {
   const mutationKey = ["removeFromCart"];
@@ -1154,7 +1158,7 @@ export const getRemoveFromCartMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof removeFromCart>>,
-    { productId: number; size: string }
+    { productId: string; size: string }
   > = (props) => {
     const { productId, size } = props ?? {};
 
@@ -1180,14 +1184,14 @@ export const useRemoveFromCart = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof removeFromCart>>,
     TError,
-    { productId: number; size: string },
+    { productId: string; size: string },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof removeFromCart>>,
   TError,
-  { productId: number; size: string },
+  { productId: string; size: string },
   TContext
 > => {
   return useMutation(getRemoveFromCartMutationOptions(options));
@@ -1271,12 +1275,12 @@ export function useGetWishlist<
 /**
  * @summary Add product to wishlist
  */
-export const getAddToWishlistUrl = (productId: number) => {
+export const getAddToWishlistUrl = (productId: string) => {
   return `/api/wishlist/${productId}`;
 };
 
 export const addToWishlist = async (
-  productId: number,
+  productId: string,
   options?: RequestInit,
 ): Promise<MessageResponse> => {
   return customFetch<MessageResponse>(getAddToWishlistUrl(productId), {
@@ -1292,14 +1296,14 @@ export const getAddToWishlistMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof addToWishlist>>,
     TError,
-    { productId: number },
+    { productId: string },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof addToWishlist>>,
   TError,
-  { productId: number },
+  { productId: string },
   TContext
 > => {
   const mutationKey = ["addToWishlist"];
@@ -1313,7 +1317,7 @@ export const getAddToWishlistMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof addToWishlist>>,
-    { productId: number }
+    { productId: string }
   > = (props) => {
     const { productId } = props ?? {};
 
@@ -1339,14 +1343,14 @@ export const useAddToWishlist = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof addToWishlist>>,
     TError,
-    { productId: number },
+    { productId: string },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof addToWishlist>>,
   TError,
-  { productId: number },
+  { productId: string },
   TContext
 > => {
   return useMutation(getAddToWishlistMutationOptions(options));
@@ -1355,12 +1359,12 @@ export const useAddToWishlist = <
 /**
  * @summary Remove product from wishlist
  */
-export const getRemoveFromWishlistUrl = (productId: number) => {
+export const getRemoveFromWishlistUrl = (productId: string) => {
   return `/api/wishlist/${productId}`;
 };
 
 export const removeFromWishlist = async (
-  productId: number,
+  productId: string,
   options?: RequestInit,
 ): Promise<MessageResponse> => {
   return customFetch<MessageResponse>(getRemoveFromWishlistUrl(productId), {
@@ -1376,14 +1380,14 @@ export const getRemoveFromWishlistMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof removeFromWishlist>>,
     TError,
-    { productId: number },
+    { productId: string },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof removeFromWishlist>>,
   TError,
-  { productId: number },
+  { productId: string },
   TContext
 > => {
   const mutationKey = ["removeFromWishlist"];
@@ -1397,7 +1401,7 @@ export const getRemoveFromWishlistMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof removeFromWishlist>>,
-    { productId: number }
+    { productId: string }
   > = (props) => {
     const { productId } = props ?? {};
 
@@ -1423,14 +1427,14 @@ export const useRemoveFromWishlist = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof removeFromWishlist>>,
     TError,
-    { productId: number },
+    { productId: string },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof removeFromWishlist>>,
   TError,
-  { productId: number },
+  { productId: string },
   TContext
 > => {
   return useMutation(getRemoveFromWishlistMutationOptions(options));
@@ -1679,6 +1683,179 @@ export function useGetOrder<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Create a Stripe Checkout Session for the authenticated user's cart
+ */
+export const getCreateCheckoutSessionUrl = () => {
+  return `/api/stripe/create-checkout-session`;
+};
+
+export const createCheckoutSession = async (
+  createCheckoutSessionBody?: CreateCheckoutSessionBody,
+  options?: RequestInit,
+): Promise<CheckoutSessionResponse> => {
+  return customFetch<CheckoutSessionResponse>(getCreateCheckoutSessionUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createCheckoutSessionBody),
+  });
+};
+
+export const getCreateCheckoutSessionMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCheckoutSession>>,
+    TError,
+    { data: BodyType<CreateCheckoutSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createCheckoutSession>>,
+  TError,
+  { data: BodyType<CreateCheckoutSessionBody> },
+  TContext
+> => {
+  const mutationKey = ["createCheckoutSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createCheckoutSession>>,
+    { data: BodyType<CreateCheckoutSessionBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createCheckoutSession(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateCheckoutSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createCheckoutSession>>
+>;
+export type CreateCheckoutSessionMutationBody =
+  BodyType<CreateCheckoutSessionBody>;
+export type CreateCheckoutSessionMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Create a Stripe Checkout Session for the authenticated user's cart
+ */
+export const useCreateCheckoutSession = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCheckoutSession>>,
+    TError,
+    { data: BodyType<CreateCheckoutSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createCheckoutSession>>,
+  TError,
+  { data: BodyType<CreateCheckoutSessionBody> },
+  TContext
+> => {
+  return useMutation(getCreateCheckoutSessionMutationOptions(options));
+};
+
+/**
+ * @summary Finalize an order after a successful Stripe Checkout Session
+ */
+export const getCompleteOrderUrl = () => {
+  return `/api/stripe/complete-order`;
+};
+
+export const completeOrder = async (
+  completeOrderBody: CompleteOrderBody,
+  options?: RequestInit,
+): Promise<CompleteOrderResponse> => {
+  return customFetch<CompleteOrderResponse>(getCompleteOrderUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(completeOrderBody),
+  });
+};
+
+export const getCompleteOrderMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof completeOrder>>,
+    TError,
+    { data: BodyType<CompleteOrderBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof completeOrder>>,
+  TError,
+  { data: BodyType<CompleteOrderBody> },
+  TContext
+> => {
+  const mutationKey = ["completeOrder"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof completeOrder>>,
+    { data: BodyType<CompleteOrderBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return completeOrder(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CompleteOrderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof completeOrder>>
+>;
+export type CompleteOrderMutationBody = BodyType<CompleteOrderBody>;
+export type CompleteOrderMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Finalize an order after a successful Stripe Checkout Session
+ */
+export const useCompleteOrder = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof completeOrder>>,
+    TError,
+    { data: BodyType<CompleteOrderBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof completeOrder>>,
+  TError,
+  { data: BodyType<CompleteOrderBody> },
+  TContext
+> => {
+  return useMutation(getCompleteOrderMutationOptions(options));
+};
 
 /**
  * @summary Capture email for 10% off popup

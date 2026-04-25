@@ -1,8 +1,9 @@
 import { Router, type IRouter } from "express";
-import { db, ordersTable, cartItemsTable, productsTable, usersTable } from "@workspace/db";
+import { db, ordersTable, cartItemsTable, usersTable } from "@workspace/db";
 import { eq, desc, sql } from "drizzle-orm";
 import { CreateOrderBody } from "@workspace/api-zod";
 import { requireAuth, requireAdmin, type AuthRequest } from "../middlewares/auth";
+import { getStripeProductSummaries, countActiveStripeProducts } from "../lib/stripeDb";
 
 const router: IRouter = Router();
 
@@ -40,44 +41,67 @@ router.get("/orders/:id", requireAuth, async (req: AuthRequest, res): Promise<vo
 });
 
 router.post("/orders", requireAuth, async (req: AuthRequest, res): Promise<void> => {
+  // Block direct order creation unless explicitly opted in via ALLOW_SIMULATED_CHECKOUT=true.
+  // This prevents payment bypass: orders must go through /stripe/create-checkout-session
+  // → /stripe/complete-order so Stripe verifies funds before the order is created.
+  const simulatedAllowed = process.env.ALLOW_SIMULATED_CHECKOUT === "true";
+  if (!simulatedAllowed) {
+    res.status(400).json({
+      error: "Direct order creation is disabled. Please complete payment through Stripe Checkout.",
+    });
+    return;
+  }
+
   const parsed = CreateOrderBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
 
-  const cartRows = await db
-    .select()
-    .from(cartItemsTable)
-    .innerJoin(productsTable, eq(cartItemsTable.productId, productsTable.id))
-    .where(eq(cartItemsTable.userId, req.userId!));
+  try {
+    const cartRows = await db
+      .select()
+      .from(cartItemsTable)
+      .where(eq(cartItemsTable.userId, req.userId!));
 
-  if (cartRows.length === 0) {
-    res.status(400).json({ error: "Cart is empty" });
-    return;
+    if (cartRows.length === 0) {
+      res.status(400).json({ error: "Cart is empty" });
+      return;
+    }
+
+    const productIds = [...new Set(cartRows.map((r) => r.productId))];
+    const stripeProducts = await getStripeProductSummaries(productIds);
+    const productMap = new Map(stripeProducts.map((p) => [p.id, p]));
+
+    const items = cartRows.map((r) => {
+      const p = productMap.get(r.productId);
+      return {
+        productId: r.productId,
+        productName: p?.name ?? "Unknown Product",
+        stripePriceId: p?.price_id ?? "",
+        price: p?.unit_amount != null ? p.unit_amount / 100 : 0,
+        quantity: r.quantity,
+        size: r.size,
+      };
+    });
+
+    const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+    const [order] = await db.insert(ordersTable).values({
+      userId: req.userId!,
+      items,
+      total: String(total),
+      status: "pending",
+      shippingAddress: parsed.data.shippingAddress,
+    }).returning();
+
+    await db.delete(cartItemsTable).where(eq(cartItemsTable.userId, req.userId!));
+
+    res.status(201).json(toOrderShape(order));
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to create order";
+    res.status(500).json({ error: message });
   }
-
-  const items = cartRows.map((r) => ({
-    productId: r.products.id,
-    productName: r.products.name,
-    price: Number(r.products.price),
-    quantity: r.cart_items.quantity,
-    size: r.cart_items.size,
-  }));
-
-  const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-
-  const [order] = await db.insert(ordersTable).values({
-    userId: req.userId!,
-    items,
-    total: String(total),
-    status: "pending",
-    shippingAddress: parsed.data.shippingAddress,
-  }).returning();
-
-  await db.delete(cartItemsTable).where(eq(cartItemsTable.userId, req.userId!));
-
-  res.status(201).json(toOrderShape(order));
 });
 
 router.get("/admin/orders", requireAdmin, async (_req, res): Promise<void> => {
@@ -109,7 +133,7 @@ router.get("/admin/stats", requireAdmin, async (_req, res): Promise<void> => {
   const [totalRevenue] = await db.select({ total: sql<number>`COALESCE(SUM(${ordersTable.total}::numeric), 0)` }).from(ordersTable);
   const [totalOrders] = await db.select({ count: sql<number>`COUNT(*)` }).from(ordersTable);
   const [totalCustomers] = await db.select({ count: sql<number>`COUNT(*)` }).from(usersTable);
-  const [totalProducts] = await db.select({ count: sql<number>`COUNT(*)` }).from(productsTable);
+  const totalProducts = await countActiveStripeProducts();
 
   const recentRows = await db
     .select({ order: ordersTable, user: usersTable })
@@ -134,7 +158,7 @@ router.get("/admin/stats", requireAdmin, async (_req, res): Promise<void> => {
     totalRevenue: Number(totalRevenue?.total ?? 0),
     totalOrders: Number(totalOrders?.count ?? 0),
     totalCustomers: Number(totalCustomers?.count ?? 0),
-    totalProducts: Number(totalProducts?.count ?? 0),
+    totalProducts,
     recentOrders,
     topProducts: [],
   });

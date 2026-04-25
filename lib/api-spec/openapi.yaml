@@ -168,7 +168,7 @@ paths:
           name: id
           required: true
           schema:
-            type: integer
+            type: string
       responses:
         "200":
           description: Product
@@ -193,7 +193,7 @@ paths:
           name: id
           required: true
           schema:
-            type: integer
+            type: string
       requestBody:
         required: true
         content:
@@ -218,7 +218,7 @@ paths:
           name: id
           required: true
           schema:
-            type: integer
+            type: string
       responses:
         "204":
           description: Deleted
@@ -285,7 +285,7 @@ paths:
           name: productId
           required: true
           schema:
-            type: integer
+            type: string
         - in: path
           name: size
           required: true
@@ -315,7 +315,7 @@ paths:
           name: productId
           required: true
           schema:
-            type: integer
+            type: string
         - in: path
           name: size
           required: true
@@ -359,7 +359,7 @@ paths:
           name: productId
           required: true
           schema:
-            type: integer
+            type: string
       responses:
         "200":
           description: Added
@@ -378,7 +378,7 @@ paths:
           name: productId
           required: true
           schema:
-            type: integer
+            type: string
       responses:
         "200":
           description: Removed
@@ -444,6 +444,61 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Order"
+
+  # ── Stripe checkout ───────────────────────────────────────────────────────
+  /stripe/create-checkout-session:
+    post:
+      operationId: createCheckoutSession
+      tags: [orders]
+      summary: Create a Stripe Checkout Session for the authenticated user's cart
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCheckoutSessionBody"
+      responses:
+        "200":
+          description: Stripe Checkout Session URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutSessionResponse"
+        "400":
+          description: Cart is empty or product prices are missing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /stripe/complete-order:
+    post:
+      operationId: completeOrder
+      tags: [orders]
+      summary: Finalize an order after a successful Stripe Checkout Session
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompleteOrderBody"
+      responses:
+        "200":
+          description: Order created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompleteOrderResponse"
+        "400":
+          description: Session not paid or snapshot missing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   # ── Email capture ──────────────────────────────────────────────────────────
   /email-signup:
@@ -547,6 +602,43 @@ components:
       required:
         - message
 
+    CreateCheckoutSessionBody:
+      type: object
+      properties:
+        shippingAddress:
+          type: string
+        successUrl:
+          type: string
+          format: uri
+        cancelUrl:
+          type: string
+          format: uri
+
+    CheckoutSessionResponse:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+      required:
+        - url
+
+    CompleteOrderBody:
+      type: object
+      properties:
+        sessionId:
+          type: string
+      required:
+        - sessionId
+
+    CompleteOrderResponse:
+      type: object
+      properties:
+        orderId:
+          type: integer
+      required:
+        - orderId
+
     # ── Auth ──────────────────────────────────────────────────────────────
     RegisterBody:
       type: object
@@ -613,7 +705,8 @@ components:
       type: object
       properties:
         id:
-          type: integer
+          type: string
+          description: Stripe product ID (prod_...)
         name:
           type: string
         description:
@@ -635,6 +728,9 @@ components:
         createdAt:
           type: string
           format: date-time
+        stripePriceId:
+          type: string
+          description: Stripe price ID (price_...)
       required:
         - id
         - name
@@ -646,6 +742,7 @@ components:
         - isFeatured
         - stock
         - createdAt
+        - stripePriceId
 
     CreateProductBody:
       type: object
@@ -711,7 +808,8 @@ components:
       type: object
       properties:
         productId:
-          type: integer
+          type: string
+          description: Stripe product ID (prod_...)
         quantity:
           type: integer
         size:
@@ -734,9 +832,13 @@ components:
       type: object
       properties:
         productId:
-          type: integer
+          type: string
+          description: Stripe product ID (prod_...)
         productName:
           type: string
+        stripePriceId:
+          type: string
+          description: Stripe price ID (price_...)
         price:
           type: number
         quantity:

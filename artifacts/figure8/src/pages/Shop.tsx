@@ -16,12 +16,10 @@ export function Shop() {
 
   const categories = [
     { name: "All", value: undefined },
-    { name: "New Arrivals", value: "new" },
-    { name: "Athleisure", value: "athleisure" },
     { name: "Sets", value: "sets" },
     { name: "Tops", value: "tops" },
     { name: "Bottoms", value: "bottoms" },
-    { name: "Accessories", value: "accessories" },
+    { name: "Outerwear", value: "outerwear" },
   ];
 
   return (

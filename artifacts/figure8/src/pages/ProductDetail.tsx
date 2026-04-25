@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 
 export function ProductDetail() {
   const [, params] = useRoute("/shop/:id");
-  const id = parseInt(params?.id || "0", 10);
+  const id = params?.id || "";
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -30,7 +30,7 @@ export function ProductDetail() {
     query: { enabled: !!user, queryKey: getGetWishlistQueryKey() }
   });
 
-  const isFavorited = wishlist?.some((p: { id: number }) => p.id === id) ?? false;
+  const isFavorited = wishlist?.some((p: { id: string }) => p.id === id) ?? false;
   
   const addToCart = useAddToCart();
   const addToWishlist = useAddToWishlist();

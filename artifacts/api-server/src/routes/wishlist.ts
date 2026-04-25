@@ -1,58 +1,76 @@
 import { Router, type IRouter } from "express";
-import { db, wishlistTable, productsTable } from "@workspace/db";
+import { db, wishlistTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
+import { getStripeProductsByIds, getStripeProductSummaries, toProductShape } from "../lib/stripeDb";
 
 const router: IRouter = Router();
 
 router.get("/wishlist", requireAuth, async (req: AuthRequest, res): Promise<void> => {
-  const rows = await db
-    .select()
-    .from(wishlistTable)
-    .innerJoin(productsTable, eq(wishlistTable.productId, productsTable.id))
-    .where(eq(wishlistTable.userId, req.userId!));
+  try {
+    const rows = await db
+      .select()
+      .from(wishlistTable)
+      .where(eq(wishlistTable.userId, req.userId!));
 
-  const products = rows.map((r) => ({
-    id: r.products.id,
-    name: r.products.name,
-    description: r.products.description,
-    price: Number(r.products.price),
-    imageUrl: r.products.imageUrl,
-    category: r.products.category,
-    sizes: r.products.sizes,
-    isFeatured: r.products.isFeatured,
-    stock: r.products.stock,
-    createdAt: r.products.createdAt,
-  }));
+    const productIds = rows.map((r) => r.productId);
+    const stripeProducts = await getStripeProductsByIds(productIds);
+    const productMap = new Map(stripeProducts.map((p) => [p.id, p]));
 
-  res.json(products);
+    const products = rows
+      .map((r) => {
+        const p = productMap.get(r.productId);
+        return p ? toProductShape(p) : null;
+      })
+      .filter((p): p is NonNullable<typeof p> => p !== null);
+
+    res.json(products);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to fetch wishlist";
+    res.status(500).json({ error: message });
+  }
 });
 
 router.post("/wishlist/:productId", requireAuth, async (req: AuthRequest, res): Promise<void> => {
-  const raw = Array.isArray(req.params.productId) ? req.params.productId[0] : req.params.productId;
-  const productId = parseInt(raw, 10);
+  const productId = Array.isArray(req.params.productId) ? req.params.productId[0] : req.params.productId;
 
-  const existing = await db
-    .select()
-    .from(wishlistTable)
-    .where(and(eq(wishlistTable.userId, req.userId!), eq(wishlistTable.productId, productId)));
+  try {
+    // Validate that the product exists and has an active price before adding
+    const [product] = await getStripeProductSummaries([productId]);
+    if (!product) {
+      res.status(404).json({ error: "Product not found or no longer available" });
+      return;
+    }
 
-  if (existing.length === 0) {
-    await db.insert(wishlistTable).values({ userId: req.userId!, productId });
+    const existing = await db
+      .select()
+      .from(wishlistTable)
+      .where(and(eq(wishlistTable.userId, req.userId!), eq(wishlistTable.productId, productId)));
+
+    if (existing.length === 0) {
+      await db.insert(wishlistTable).values({ userId: req.userId!, productId });
+    }
+
+    res.json({ message: "Added to wishlist" });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to add to wishlist";
+    res.status(500).json({ error: message });
   }
-
-  res.json({ message: "Added to wishlist" });
 });
 
 router.delete("/wishlist/:productId", requireAuth, async (req: AuthRequest, res): Promise<void> => {
-  const raw = Array.isArray(req.params.productId) ? req.params.productId[0] : req.params.productId;
-  const productId = parseInt(raw, 10);
+  const productId = Array.isArray(req.params.productId) ? req.params.productId[0] : req.params.productId;
 
-  await db.delete(wishlistTable).where(
-    and(eq(wishlistTable.userId, req.userId!), eq(wishlistTable.productId, productId))
-  );
+  try {
+    await db.delete(wishlistTable).where(
+      and(eq(wishlistTable.userId, req.userId!), eq(wishlistTable.productId, productId))
+    );
 
-  res.json({ message: "Removed from wishlist" });
+    res.json({ message: "Removed from wishlist" });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to remove from wishlist";
+    res.status(500).json({ error: message });
+  }
 });
 
 export default router;

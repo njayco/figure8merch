@@ -7,8 +7,11 @@
  */
 
 export interface OrderItem {
-  productId: number;
+  /** Stripe product ID (prod_...) */
+  productId: string;
   productName: string;
+  /** Stripe price ID (price_...) */
+  stripePriceId?: string;
   price: number;
   quantity: number;
   size: string;

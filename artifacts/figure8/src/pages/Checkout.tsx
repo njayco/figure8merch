@@ -3,13 +3,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useLocation } from "wouter";
-import { loadStripe } from "@stripe/stripe-js";
-import {
-  Elements,
-  PaymentElement,
-  useStripe,
-  useElements,
-} from "@stripe/react-stripe-js";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -21,14 +14,9 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import {
-  useGetCart,
-  getGetCartQueryKey,
-  useCreateOrder,
-} from "@workspace/api-client-react";
+import { useGetCart, getGetCartQueryKey } from "@workspace/api-client-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Spinner } from "@/components/ui/spinner";
-import { useQueryClient } from "@tanstack/react-query";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "");
 
@@ -44,112 +32,12 @@ const contactSchema = z.object({
 
 type ContactValues = z.infer<typeof contactSchema>;
 
-// Inner form rendered inside <Elements>
-function StripeCheckoutForm({
-  cart,
-  contactValues,
-}: {
-  cart: any;
-  contactValues: ContactValues;
-}) {
-  const stripe = useStripe();
-  const elements = useElements();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [, setLocation] = useLocation();
-  const [submitting, setSubmitting] = useState(false);
-  const createOrder = useCreateOrder();
-
-  const handlePay = async () => {
-    if (!stripe || !elements) return;
-    setSubmitting(true);
-
-    // Confirm payment with Stripe.js
-    const { error, paymentIntent } = await stripe.confirmPayment({
-      elements,
-      confirmParams: {
-        return_url: `${window.location.origin}${BASE}/orders`,
-      },
-      redirect: "if_required",
-    });
-
-    if (error) {
-      toast({
-        variant: "destructive",
-        title: "Payment Failed",
-        description: error.message || "Your card was declined.",
-      });
-      setSubmitting(false);
-      return;
-    }
-
-    if (paymentIntent?.status === "succeeded") {
-      const fullAddress = `${contactValues.firstName} ${contactValues.lastName}, ${contactValues.address}, ${contactValues.city}, ${contactValues.state} ${contactValues.zipCode}`;
-      createOrder.mutate(
-        {
-          data: {
-            shippingAddress: fullAddress,
-            paymentMethodId: paymentIntent.id,
-          },
-        },
-        {
-          onSuccess: (order) => {
-            queryClient.invalidateQueries({ queryKey: getGetCartQueryKey() });
-            toast({
-              title: "Order Confirmed",
-              description: `Order #${order.id} placed successfully.`,
-            });
-            setLocation("/orders");
-          },
-          onError: () => {
-            toast({
-              variant: "destructive",
-              title: "Order Error",
-              description: "Payment succeeded but order creation failed. Contact support.",
-            });
-            setSubmitting(false);
-          },
-        }
-      );
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      <div className="bg-background border border-border p-6 shadow-sm">
-        <h2 className="text-lg font-serif font-bold mb-6">Payment</h2>
-        <p className="text-sm text-muted-foreground mb-6">
-          All transactions are secure and encrypted.
-        </p>
-        <PaymentElement
-          options={{
-            layout: "tabs",
-          }}
-        />
-      </div>
-
-      <Button
-        type="button"
-        onClick={handlePay}
-        className="w-full rounded-none uppercase tracking-widest font-bold h-16 text-lg"
-        disabled={!stripe || !elements || submitting}
-      >
-        {submitting ? "Processing..." : `Pay $${cart.total.toFixed(2)}`}
-      </Button>
-    </div>
-  );
-}
-
-// Outer shell: collects contact/shipping info, then loads Stripe Elements
 export function Checkout() {
   const [, setLocation] = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
-
-  const [stripePromise, setStripePromise] = useState<any>(null);
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [step, setStep] = useState<"contact" | "payment">("contact");
-  const [contactValues, setContactValues] = useState<ContactValues | null>(null);
+  const [stripeAvailable, setStripeAvailable] = useState<boolean | null>(null);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   const { data: cart, isLoading } = useGetCart({
     query: {
@@ -171,21 +59,15 @@ export function Checkout() {
     },
   });
 
-  // Load Stripe publishable key
+  // Check if Stripe is configured
   useEffect(() => {
     fetch(`${BASE}/api/stripe/config`)
       .then((r) => r.json())
-      .then(({ publishableKey }) => {
-        if (publishableKey) {
-          setStripePromise(loadStripe(publishableKey));
-        }
-      })
-      .catch(() => {
-        // Stripe not configured — fall back to simulated checkout
-      });
+      .then(({ publishableKey }) => setStripeAvailable(!!publishableKey))
+      .catch(() => setStripeAvailable(false));
   }, []);
 
-  if (isLoading) {
+  if (isLoading || stripeAvailable === null) {
     return (
       <div className="min-h-[70vh] flex items-center justify-center">
         <Spinner className="h-8 w-8 text-primary" />
@@ -198,39 +80,36 @@ export function Checkout() {
     return null;
   }
 
-  const onContactSubmit = async (values: ContactValues) => {
-    setContactValues(values);
+  const onSubmit = async (values: ContactValues) => {
+    if (!stripeAvailable) return;
 
-    if (!stripePromise) {
-      // Fallback: no Stripe configured, go straight to simulated payment
-      setStep("payment");
-      return;
-    }
+    const shippingAddress = `${values.firstName} ${values.lastName}, ${values.address}, ${values.city}, ${values.state} ${values.zipCode}`;
 
-    // Create PaymentIntent on the server
+    setIsRedirecting(true);
     try {
-      const amountInCents = Math.round(cart.total * 100);
-      const resp = await fetch(`${BASE}/api/stripe/create-payment-intent`, {
+      const successUrl = `${window.location.origin}${BASE}/order-success?session_id={CHECKOUT_SESSION_ID}`;
+      const cancelUrl = `${window.location.origin}${BASE}/checkout`;
+
+      const resp = await fetch(`${BASE}/api/stripe/create-checkout-session`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
-        body: JSON.stringify({ amount: amountInCents }),
+        body: JSON.stringify({ shippingAddress, successUrl, cancelUrl }),
       });
+
       const data = await resp.json();
-      if (data.clientSecret) {
-        setClientSecret(data.clientSecret);
-        setStep("payment");
-      } else {
-        throw new Error(data.error || "Could not initialize payment");
+      if (!resp.ok) {
+        throw new Error(data.error || "Could not create checkout session");
       }
-    } catch (err: any) {
-      toast({
-        variant: "destructive",
-        title: "Payment Setup Failed",
-        description: err.message || "Unable to initialize checkout.",
-      });
+
+      // Redirect to Stripe's hosted Checkout page
+      window.location.href = data.url;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unable to initialize checkout";
+      toast({ variant: "destructive", title: "Checkout Error", description: message });
+      setIsRedirecting(false);
     }
   };
 
@@ -240,31 +119,19 @@ export function Checkout() {
         <h1 className="text-3xl font-serif font-bold mb-8">Checkout</h1>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-          {/* Checkout Form */}
           <div className="lg:col-span-7 space-y-6">
-            {/* Step 1: Contact + Shipping */}
             <Form {...form}>
-              <form
-                onSubmit={form.handleSubmit(onContactSubmit)}
-                className="space-y-6"
-              >
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <div className="bg-background border border-border p-6 shadow-sm">
-                  <h2 className="text-lg font-serif font-bold mb-6">
-                    Contact Information
-                  </h2>
+                  <h2 className="text-lg font-serif font-bold mb-6">Contact Information</h2>
                   <FormField
                     control={form.control}
                     name="email"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-xs uppercase tracking-wider">
-                          Email
-                        </FormLabel>
+                        <FormLabel className="text-xs uppercase tracking-wider">Email</FormLabel>
                         <FormControl>
-                          <Input
-                            className="rounded-none border-border focus-visible:ring-primary"
-                            {...field}
-                          />
+                          <Input className="rounded-none border-border focus-visible:ring-primary" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -273,23 +140,16 @@ export function Checkout() {
                 </div>
 
                 <div className="bg-background border border-border p-6 shadow-sm">
-                  <h2 className="text-lg font-serif font-bold mb-6">
-                    Shipping Address
-                  </h2>
+                  <h2 className="text-lg font-serif font-bold mb-6">Shipping Address</h2>
                   <div className="grid grid-cols-2 gap-4 mb-4">
                     <FormField
                       control={form.control}
                       name="firstName"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-xs uppercase tracking-wider">
-                            First Name
-                          </FormLabel>
+                          <FormLabel className="text-xs uppercase tracking-wider">First Name</FormLabel>
                           <FormControl>
-                            <Input
-                              className="rounded-none border-border focus-visible:ring-primary"
-                              {...field}
-                            />
+                            <Input className="rounded-none border-border focus-visible:ring-primary" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -300,14 +160,9 @@ export function Checkout() {
                       name="lastName"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-xs uppercase tracking-wider">
-                            Last Name
-                          </FormLabel>
+                          <FormLabel className="text-xs uppercase tracking-wider">Last Name</FormLabel>
                           <FormControl>
-                            <Input
-                              className="rounded-none border-border focus-visible:ring-primary"
-                              {...field}
-                            />
+                            <Input className="rounded-none border-border focus-visible:ring-primary" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -321,14 +176,9 @@ export function Checkout() {
                       name="address"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-xs uppercase tracking-wider">
-                            Street Address
-                          </FormLabel>
+                          <FormLabel className="text-xs uppercase tracking-wider">Street Address</FormLabel>
                           <FormControl>
-                            <Input
-                              className="rounded-none border-border focus-visible:ring-primary"
-                              {...field}
-                            />
+                            <Input className="rounded-none border-border focus-visible:ring-primary" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -342,14 +192,9 @@ export function Checkout() {
                           name="city"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel className="text-xs uppercase tracking-wider">
-                                City
-                              </FormLabel>
+                              <FormLabel className="text-xs uppercase tracking-wider">City</FormLabel>
                               <FormControl>
-                                <Input
-                                  className="rounded-none border-border focus-visible:ring-primary"
-                                  {...field}
-                                />
+                                <Input className="rounded-none border-border focus-visible:ring-primary" {...field} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -362,14 +207,9 @@ export function Checkout() {
                           name="state"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel className="text-xs uppercase tracking-wider">
-                                State
-                              </FormLabel>
+                              <FormLabel className="text-xs uppercase tracking-wider">State</FormLabel>
                               <FormControl>
-                                <Input
-                                  className="rounded-none border-border focus-visible:ring-primary"
-                                  {...field}
-                                />
+                                <Input className="rounded-none border-border focus-visible:ring-primary" {...field} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -382,14 +222,9 @@ export function Checkout() {
                           name="zipCode"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel className="text-xs uppercase tracking-wider">
-                                Zip Code
-                              </FormLabel>
+                              <FormLabel className="text-xs uppercase tracking-wider">Zip Code</FormLabel>
                               <FormControl>
-                                <Input
-                                  className="rounded-none border-border focus-visible:ring-primary"
-                                  {...field}
-                                />
+                                <Input className="rounded-none border-border focus-visible:ring-primary" {...field} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -400,58 +235,41 @@ export function Checkout() {
                   </div>
                 </div>
 
-                {step === "contact" && (
-                  <Button
-                    type="submit"
-                    className="w-full rounded-none uppercase tracking-widest font-bold h-14 text-base"
-                  >
-                    Continue to Payment
-                  </Button>
+                {stripeAvailable && (
+                  <div className="bg-muted/30 border border-border p-4 text-sm text-muted-foreground">
+                    <p>You will be redirected to Stripe's secure checkout page to enter your payment details.</p>
+                  </div>
                 )}
+
+                {!stripeAvailable && (
+                  <div className="bg-destructive/10 border border-destructive/30 rounded p-3">
+                    <p className="text-sm font-medium text-destructive">Payment Unavailable</p>
+                    <p className="text-xs text-muted-foreground mt-1">Stripe is not configured for this environment. Please contact support.</p>
+                  </div>
+                )}
+
+                <Button
+                  type="submit"
+                  className="w-full rounded-none uppercase tracking-widest font-bold h-14 text-base"
+                  disabled={isRedirecting || !stripeAvailable}
+                >
+                  {isRedirecting
+                    ? "Redirecting to payment..."
+                    : stripeAvailable
+                    ? `Continue to Payment — $${cart.total.toFixed(2)}`
+                    : "Payment Unavailable"}
+                </Button>
               </form>
             </Form>
-
-            {/* Step 2: Stripe Payment */}
-            {step === "payment" && contactValues && (
-              <>
-                {stripePromise && clientSecret ? (
-                  <Elements
-                    stripe={stripePromise}
-                    options={{
-                      clientSecret,
-                      appearance: {
-                        theme: "stripe",
-                        variables: {
-                          colorPrimary: "#3d2b1f",
-                          fontFamily: "inherit",
-                          borderRadius: "0px",
-                        },
-                      },
-                    }}
-                  >
-                    <StripeCheckoutForm
-                      cart={cart}
-                      contactValues={contactValues}
-                    />
-                  </Elements>
-                ) : (
-                  <SimulatedPayment cart={cart} contactValues={contactValues} />
-                )}
-              </>
-            )}
           </div>
 
-          {/* Order Summary Sidebar */}
           <div className="lg:col-span-5">
             <div className="bg-muted/30 p-8 border border-border sticky top-24">
               <h2 className="text-xl font-serif font-bold mb-6">In Your Bag</h2>
 
               <div className="space-y-6 mb-8 max-h-[400px] overflow-y-auto pr-2">
                 {cart.items.map((item: any) => (
-                  <div
-                    key={`${item.product.id}-${item.size}`}
-                    className="flex gap-4"
-                  >
+                  <div key={`${item.product.id}-${item.size}`} className="flex gap-4">
                     <div className="w-16 h-20 bg-muted shrink-0 relative">
                       <img
                         src={item.product.imageUrl}
@@ -463,17 +281,11 @@ export function Checkout() {
                       </span>
                     </div>
                     <div className="flex-1 flex flex-col justify-center">
-                      <p className="text-sm font-medium leading-tight">
-                        {item.product.name}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1 uppercase">
-                        Size: {item.size}
-                      </p>
+                      <p className="text-sm font-medium leading-tight">{item.product.name}</p>
+                      <p className="text-xs text-muted-foreground mt-1 uppercase">Size: {item.size}</p>
                     </div>
                     <div className="flex items-center">
-                      <p className="text-sm font-medium">
-                        ${(item.product.price * item.quantity).toFixed(2)}
-                      </p>
+                      <p className="text-sm font-medium">${(item.product.price * item.quantity).toFixed(2)}</p>
                     </div>
                   </div>
                 ))}
@@ -499,75 +311,5 @@ export function Checkout() {
         </div>
       </div>
     </main>
-  );
-}
-
-// Fallback when Stripe is not yet configured
-function SimulatedPayment({
-  cart,
-  contactValues,
-}: {
-  cart: any;
-  contactValues: ContactValues;
-}) {
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [, setLocation] = useLocation();
-  const createOrder = useCreateOrder();
-
-  const handlePay = () => {
-    const fullAddress = `${contactValues.firstName} ${contactValues.lastName}, ${contactValues.address}, ${contactValues.city}, ${contactValues.state} ${contactValues.zipCode}`;
-    createOrder.mutate(
-      {
-        data: {
-          shippingAddress: fullAddress,
-          paymentMethodId: "pm_simulated",
-        },
-      },
-      {
-        onSuccess: (order) => {
-          queryClient.invalidateQueries({ queryKey: getGetCartQueryKey() });
-          toast({
-            title: "Order Confirmed",
-            description: `Order #${order.id} placed successfully.`,
-          });
-          setLocation("/orders");
-        },
-        onError: () => {
-          toast({
-            variant: "destructive",
-            title: "Checkout Failed",
-            description: "There was an error processing your order.",
-          });
-        },
-      }
-    );
-  };
-
-  return (
-    <div className="space-y-6">
-      <div className="bg-background border border-border p-6 shadow-sm">
-        <h2 className="text-lg font-serif font-bold mb-4">Payment</h2>
-        <div className="bg-amber-50 border border-amber-200 rounded p-3">
-          <p className="text-sm font-medium text-amber-800">
-            Test Mode — Stripe not yet connected
-          </p>
-          <p className="text-xs text-amber-700 mt-1">
-            This checkout is simulated. No real payment will be processed.
-          </p>
-        </div>
-      </div>
-
-      <Button
-        type="button"
-        onClick={handlePay}
-        disabled={createOrder.isPending}
-        className="w-full rounded-none uppercase tracking-widest font-bold h-16 text-lg"
-      >
-        {createOrder.isPending
-          ? "Processing..."
-          : `Place Order — $${cart.total.toFixed(2)}`}
-      </Button>
-    </div>
   );
 }

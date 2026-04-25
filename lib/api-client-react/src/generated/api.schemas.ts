@@ -17,6 +17,24 @@ export interface MessageResponse {
   message: string;
 }
 
+export interface CreateCheckoutSessionBody {
+  shippingAddress?: string;
+  successUrl?: string;
+  cancelUrl?: string;
+}
+
+export interface CheckoutSessionResponse {
+  url: string;
+}
+
+export interface CompleteOrderBody {
+  sessionId: string;
+}
+
+export interface CompleteOrderResponse {
+  orderId: number;
+}
+
 export interface RegisterBody {
   email: string;
   /** @minLength 6 */
@@ -43,7 +61,8 @@ export interface AuthResponse {
 }
 
 export interface Product {
-  id: number;
+  /** Stripe product ID (prod_...) */
+  id: string;
   name: string;
   description: string;
   price: number;
@@ -53,6 +72,8 @@ export interface Product {
   isFeatured: boolean;
   stock: number;
   createdAt: string;
+  /** Stripe price ID (price_...) */
+  stripePriceId: string;
 }
 
 export interface CreateProductBody {
@@ -79,7 +100,8 @@ export interface Cart {
 }
 
 export interface CartItemBody {
-  productId: number;
+  /** Stripe product ID (prod_...) */
+  productId: string;
   quantity: number;
   size: string;
 }
@@ -89,8 +111,11 @@ export interface UpdateCartItemBody {
 }
 
 export interface OrderItem {
-  productId: number;
+  /** Stripe product ID (prod_...) */
+  productId: string;
   productName: string;
+  /** Stripe price ID (price_...) */
+  stripePriceId?: string;
   price: number;
   quantity: number;
   size: string;

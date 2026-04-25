@@ -24,6 +24,7 @@ import { Login } from "@/pages/Login";
 import { Register } from "@/pages/Register";
 import { About } from "@/pages/About";
 import { Community } from "@/pages/Community";
+import { OrderSuccess } from "@/pages/OrderSuccess";
 
 const queryClient = new QueryClient();
 
@@ -49,6 +50,7 @@ function Router() {
           <Route path="/checkout" component={Checkout} />
           <Route path="/wishlist" component={Wishlist} />
           <Route path="/orders" component={Orders} />
+          <Route path="/order-success" component={OrderSuccess} />
           <Route path="/login" component={Login} />
           <Route path="/register" component={Register} />
           <Route path="/about" component={About} />

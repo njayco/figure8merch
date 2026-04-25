@@ -20,7 +20,7 @@ export function Cart() {
   const updateCartItem = useUpdateCartItem();
   const removeFromCart = useRemoveFromCart();
 
-  const handleUpdateQuantity = (productId: number, size: string, newQuantity: number) => {
+  const handleUpdateQuantity = (productId: string, size: string, newQuantity: number) => {
     if (newQuantity < 1) return;
     updateCartItem.mutate(
       { productId, size, data: { quantity: newQuantity } },
@@ -32,7 +32,7 @@ export function Cart() {
     );
   };
 
-  const handleRemove = (productId: number, size: string) => {
+  const handleRemove = (productId: string, size: string) => {
     removeFromCart.mutate(
       { productId, size },
       {

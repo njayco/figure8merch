@@ -4,3 +4,4 @@ export * from "./cart";
 export * from "./wishlist";
 export * from "./orders";
 export * from "./email-signups";
+export * from "./checkout-snapshots";

@@ -49,9 +49,14 @@ Set via Replit Secrets before running the seed script.
 
 ## Database Schema
 
-Tables: `users`, `products`, `cart_items`, `wishlist`, `orders`, `order_items`, `email_signups`
+Tables: `users`, `products` (legacy), `cart_items`, `wishlist`, `orders`, `order_items`, `email_signups`
+Stripe sync schema: `stripe.products`, `stripe.prices`, `stripe.customers`, etc. (managed by `stripe-replit-sync`)
 
-Products seeded: Brownin 3 Piece Set ($19), De la Cream 3 Piece Set ($25), sports bras, leggings, jackets (8 products total)
+**Product data source**: Shop reads from `stripe.products` + `stripe.prices` tables (not local `products` table).
+Product IDs are Stripe product IDs (strings like `prod_xxx`). `cart_items.product_id` and `wishlist.product_id` are `text` (no FK to products table).
+
+Stripe products: The Signature Set ($148), The Elevated Legging ($88), The Studio Bra ($68), The Butter Short ($72), The Café Cardigan ($112), The Seamless Top ($62)
+Categories: sets, tops, bottoms, outerwear
 
 ## Brand Assets
 
@@ -71,7 +76,8 @@ Products seeded: Brownin 3 Piece Set ($19), De la Cream 3 Piece Set ($25), sport
 
 - After running codegen, must rebuild api-client-react types: `pnpm --filter @workspace/api-client-react exec tsc -p tsconfig.json`
 - The `@workspace/api-client-react` package only exports `.` (index); no subpath imports
-- Wishlist/Cart mutations use `{ productId: number }` as path param variable name (NOT `id`)
+- Wishlist/Cart mutations use `{ productId: string }` as path param variable name (NOT `id`)
+- Product.id is now a `string` (Stripe product ID like `prod_xxx`), not a number
 - `useGetCart/useGetWishlist/useGetMe` hooks take `{ query: { enabled, queryKey } }` options
 - bcrypt: uses `bcryptjs` (pure JS) NOT `bcrypt` (native)
 - Color theme: cream/beige/brown — `--primary: 28 40% 30%` (deep brown), `--background: 40 33% 98%` (cream)

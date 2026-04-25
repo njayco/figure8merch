@@ -6,9 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface CartItemBody {
-  /** Stripe product ID (prod_...) */
-  productId: string;
-  quantity: number;
-  size: string;
+export interface CreateCheckoutSessionBody {
+  shippingAddress?: string;
+  successUrl?: string;
+  cancelUrl?: string;
 }
