@@ -20,6 +20,11 @@ export const ordersTable = pgTable("orders", {
   stripeCheckoutSessionId: text("stripe_checkout_session_id"),
   stripePaymentStatus: text("stripe_payment_status"),
   cardLast4: text("card_last4"),
+  trackingNumber: text("tracking_number"),
+  carrier: text("carrier"),
+  shippedAt: timestamp("shipped_at", { withTimezone: true }),
+  deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+  estimatedDeliveryAt: timestamp("estimated_delivery_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   unique("orders_stripe_session_unique").on(t.stripeCheckoutSessionId),

@@ -1,13 +1,79 @@
-import { useGetAdminStats, useListAdminOrders, useListProducts, useListCustomers, useHealthCheck, getHealthCheckQueryKey, ApiError } from "@workspace/api-client-react";
-import type { Product, HealthStatus } from "@workspace/api-client-react";
+import { useGetAdminStats, useListAdminOrders, useListProducts, useListCustomers, useUpdateOrderStatus, useHealthCheck, getListAdminOrdersQueryKey, getGetAdminStatsQueryKey, getHealthCheckQueryKey, ApiError } from "@workspace/api-client-react";
+import type { Product, AdminOrder, UpdateOrderStatusBodyStatus, HealthStatus } from "@workspace/api-client-react";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Users, ShoppingBag, DollarSign, Package, ExternalLink, Info, AlertTriangle, TrendingUp } from "lucide-react";
 import { format } from "date-fns";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+
+const ORDER_STATUS_OPTIONS: Array<{ value: UpdateOrderStatusBodyStatus; label: string }> = [
+  { value: "pending", label: "Pending" },
+  { value: "processing", label: "Processing" },
+  { value: "shipped", label: "Shipped" },
+  { value: "delivered", label: "Delivered" },
+  { value: "cancelled", label: "Cancelled" },
+];
+
+const STATUS_BADGE_STYLES: Record<string, string> = {
+  pending: "bg-slate-100 text-slate-800",
+  processing: "bg-blue-100 text-blue-800",
+  shipped: "bg-indigo-100 text-indigo-800",
+  delivered: "bg-green-100 text-green-800",
+  cancelled: "bg-red-100 text-red-800",
+};
+
+function OrderStatusControl({ order }: { order: AdminOrder }) {
+  const queryClient = useQueryClient();
+  const { mutate, isPending } = useUpdateOrderStatus({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListAdminOrdersQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetAdminStatsQueryKey() });
+        toast.success("Order status updated");
+      },
+      onError: (err) => {
+        toast.error(err instanceof Error ? err.message : "Failed to update order");
+      },
+    },
+  });
+
+  return (
+    <div className="flex items-center justify-end gap-2">
+      <span
+        className={`px-2 py-1 text-xs rounded-full capitalize ${
+          STATUS_BADGE_STYLES[order.status] ?? "bg-muted text-muted-foreground"
+        }`}
+      >
+        {order.status}
+      </span>
+      <Select
+        value={order.status}
+        disabled={isPending}
+        onValueChange={(value) => {
+          if (value === order.status) return;
+          mutate({ id: order.id, data: { status: value as UpdateOrderStatusBodyStatus } });
+        }}
+      >
+        <SelectTrigger className="h-8 w-[140px] rounded-none text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {ORDER_STATUS_OPTIONS.map((opt) => (
+            <SelectItem key={opt.value} value={opt.value} className="text-xs">
+              {opt.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
 
 export function Admin() {
   const { data: stats, isLoading: statsLoading } = useGetAdminStats();
@@ -156,7 +222,8 @@ export function Admin() {
                   <TableHead className="uppercase tracking-wider font-bold">Customer</TableHead>
                   <TableHead className="uppercase tracking-wider font-bold">Date</TableHead>
                   <TableHead className="uppercase tracking-wider font-bold">Total</TableHead>
-                  <TableHead className="uppercase tracking-wider font-bold text-right">Status</TableHead>
+                  <TableHead className="uppercase tracking-wider font-bold">Tracking</TableHead>
+                  <TableHead className="uppercase tracking-wider font-bold text-right">Shipping Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -171,16 +238,24 @@ export function Admin() {
                     </TableCell>
                     <TableCell>{format(new Date(order.createdAt), 'MMM dd, yyyy')}</TableCell>
                     <TableCell>${order.total.toFixed(2)}</TableCell>
-                    <TableCell className="text-right capitalize font-medium">
-                      <span className={`px-2 py-1 text-xs rounded-full ${order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
-                        {order.status}
-                      </span>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {order.trackingNumber || order.carrier ? (
+                        <div className="flex flex-col">
+                          {order.carrier && <span>{order.carrier}</span>}
+                          {order.trackingNumber && <span className="font-mono">{order.trackingNumber}</span>}
+                        </div>
+                      ) : (
+                        <span>—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <OrderStatusControl order={order} />
                     </TableCell>
                   </TableRow>
                 ))}
                 {(!orders || orders.length === 0) && (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No orders yet.</TableCell>
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No orders yet.</TableCell>
                   </TableRow>
                 )}
               </TableBody>

@@ -17,5 +17,10 @@ export interface AdminOrder {
   total: number;
   status: AdminOrderStatus;
   shippingAddress: string;
+  trackingNumber?: string | null;
+  carrier?: string | null;
+  shippedAt?: Date | null;
+  deliveredAt?: Date | null;
+  estimatedDeliveryAt?: Date | null;
   createdAt: Date;
 }

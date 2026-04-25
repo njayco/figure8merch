@@ -216,7 +216,7 @@ router.post("/stripe/complete-order", requireAuth, async (req: AuthRequest, res)
         userId,
         items: cartSnapshot,
         total: String(total),
-        status: "confirmed",
+        status: "processing",
         shippingAddress: snapshot.shippingAddress,
         stripeCheckoutSessionId: sessionId,
         stripePaymentStatus,

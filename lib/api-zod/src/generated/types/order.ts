@@ -19,5 +19,15 @@ export interface Order {
   stripePaymentStatus?: string | null;
   /** Last 4 digits of the card used for payment */
   cardLast4?: string | null;
+  /** Carrier tracking number once the order ships */
+  trackingNumber?: string | null;
+  /** Shipping carrier (e.g. UPS, USPS, FedEx) */
+  carrier?: string | null;
+  /** Timestamp when the order was shipped */
+  shippedAt?: Date | null;
+  /** Timestamp when the order was delivered */
+  deliveredAt?: Date | null;
+  /** Estimated delivery date */
+  estimatedDeliveryAt?: Date | null;
   createdAt: Date;
 }

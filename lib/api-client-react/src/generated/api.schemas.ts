@@ -155,6 +155,16 @@ export interface Order {
   stripePaymentStatus?: string | null;
   /** Last 4 digits of the card used for payment */
   cardLast4?: string | null;
+  /** Carrier tracking number once the order ships */
+  trackingNumber?: string | null;
+  /** Shipping carrier (e.g. UPS, USPS, FedEx) */
+  carrier?: string | null;
+  /** Timestamp when the order was shipped */
+  shippedAt?: string | null;
+  /** Timestamp when the order was delivered */
+  deliveredAt?: string | null;
+  /** Estimated delivery date */
+  estimatedDeliveryAt?: string | null;
   createdAt: string;
 }
 
@@ -183,7 +193,30 @@ export interface AdminOrder {
   total: number;
   status: AdminOrderStatus;
   shippingAddress: string;
+  trackingNumber?: string | null;
+  carrier?: string | null;
+  shippedAt?: string | null;
+  deliveredAt?: string | null;
+  estimatedDeliveryAt?: string | null;
   createdAt: string;
+}
+
+export type UpdateOrderStatusBodyStatus =
+  (typeof UpdateOrderStatusBodyStatus)[keyof typeof UpdateOrderStatusBodyStatus];
+
+export const UpdateOrderStatusBodyStatus = {
+  pending: "pending",
+  processing: "processing",
+  shipped: "shipped",
+  delivered: "delivered",
+  cancelled: "cancelled",
+} as const;
+
+export interface UpdateOrderStatusBody {
+  status: UpdateOrderStatusBodyStatus;
+  trackingNumber?: string | null;
+  carrier?: string | null;
+  estimatedDeliveryAt?: string | null;
 }
 
 export type AdminStatsTopProductsItem = {

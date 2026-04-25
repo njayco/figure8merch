@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, ordersTable, cartItemsTable, usersTable } from "@workspace/db";
 import { eq, desc, sql } from "drizzle-orm";
-import { CreateOrderBody } from "@workspace/api-zod";
+import { CreateOrderBody, UpdateOrderStatusBody } from "@workspace/api-zod";
 import { requireAuth, requireAdmin, type AuthRequest } from "../middlewares/auth";
 import { getStripeProductSummaries, countActiveStripeProducts } from "../lib/stripeDb";
 import { getUncachableStripeClient } from "../lib/stripeClient";
@@ -42,6 +42,11 @@ async function fetchStripeRevenue(): Promise<number> {
   return revenue;
 }
 
+const VALID_ORDER_STATUSES = ["pending", "processing", "shipped", "delivered", "cancelled"] as const;
+type OrderStatus = (typeof VALID_ORDER_STATUSES)[number];
+
+const DEFAULT_DELIVERY_WINDOW_DAYS = 5;
+
 function toOrderShape(order: typeof ordersTable.$inferSelect) {
   return {
     id: order.id,
@@ -52,6 +57,33 @@ function toOrderShape(order: typeof ordersTable.$inferSelect) {
     shippingAddress: order.shippingAddress,
     stripePaymentStatus: order.stripePaymentStatus ?? null,
     cardLast4: order.cardLast4 ?? null,
+    trackingNumber: order.trackingNumber ?? null,
+    carrier: order.carrier ?? null,
+    shippedAt: order.shippedAt ?? null,
+    deliveredAt: order.deliveredAt ?? null,
+    estimatedDeliveryAt: order.estimatedDeliveryAt ?? null,
+    createdAt: order.createdAt,
+  };
+}
+
+function toAdminOrderShape(
+  order: typeof ordersTable.$inferSelect,
+  user: typeof usersTable.$inferSelect,
+) {
+  return {
+    id: order.id,
+    userId: order.userId,
+    customerName: user.name,
+    customerEmail: user.email,
+    items: order.items,
+    total: Number(order.total),
+    status: order.status,
+    shippingAddress: order.shippingAddress,
+    trackingNumber: order.trackingNumber ?? null,
+    carrier: order.carrier ?? null,
+    shippedAt: order.shippedAt ?? null,
+    deliveredAt: order.deliveredAt ?? null,
+    estimatedDeliveryAt: order.estimatedDeliveryAt ?? null,
     createdAt: order.createdAt,
   };
 }
@@ -151,19 +183,74 @@ router.get("/admin/orders", requireAdmin, async (_req, res): Promise<void> => {
     .innerJoin(usersTable, eq(ordersTable.userId, usersTable.id))
     .orderBy(desc(ordersTable.createdAt));
 
-  const orders = rows.map((r) => ({
-    id: r.order.id,
-    userId: r.order.userId,
-    customerName: r.user.name,
-    customerEmail: r.user.email,
-    items: r.order.items,
-    total: Number(r.order.total),
-    status: r.order.status,
-    shippingAddress: r.order.shippingAddress,
-    createdAt: r.order.createdAt,
-  }));
+  res.json(rows.map((r) => toAdminOrderShape(r.order, r.user)));
+});
 
-  res.json(orders);
+router.patch("/admin/orders/:id", requireAdmin, async (req, res): Promise<void> => {
+  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(raw, 10);
+  if (!Number.isFinite(id)) {
+    res.status(400).json({ error: "Invalid order id" });
+    return;
+  }
+
+  const parsed = UpdateOrderStatusBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const { status, trackingNumber, carrier, estimatedDeliveryAt } = parsed.data;
+
+  if (!VALID_ORDER_STATUSES.includes(status as OrderStatus)) {
+    res.status(400).json({ error: "Invalid status value" });
+    return;
+  }
+
+  const [existing] = await db.select().from(ordersTable).where(eq(ordersTable.id, id));
+  if (!existing) {
+    res.status(404).json({ error: "Order not found" });
+    return;
+  }
+
+  const now = new Date();
+  const updates: Partial<typeof ordersTable.$inferInsert> = { status };
+
+  if (trackingNumber !== undefined) updates.trackingNumber = trackingNumber;
+  if (carrier !== undefined) updates.carrier = carrier;
+
+  // Auto-stamp shipped/delivered timestamps when transitioning into those states
+  if (status === "shipped" && !existing.shippedAt) {
+    updates.shippedAt = now;
+    if (!existing.estimatedDeliveryAt && estimatedDeliveryAt === undefined) {
+      const eta = new Date(now);
+      eta.setDate(eta.getDate() + DEFAULT_DELIVERY_WINDOW_DAYS);
+      updates.estimatedDeliveryAt = eta;
+    }
+  }
+  if (status === "delivered" && !existing.deliveredAt) {
+    updates.deliveredAt = now;
+    if (!existing.shippedAt) {
+      updates.shippedAt = now;
+    }
+  }
+  if (estimatedDeliveryAt !== undefined) {
+    updates.estimatedDeliveryAt = estimatedDeliveryAt;
+  }
+
+  const [updated] = await db
+    .update(ordersTable)
+    .set(updates)
+    .where(eq(ordersTable.id, id))
+    .returning();
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, updated.userId));
+  if (!user) {
+    res.status(500).json({ error: "Order user not found" });
+    return;
+  }
+
+  res.json(toAdminOrderShape(updated, user));
 });
 
 router.get("/admin/stats", requireAdmin, async (_req, res): Promise<void> => {
@@ -207,17 +294,7 @@ router.get("/admin/stats", requireAdmin, async (_req, res): Promise<void> => {
     .orderBy(desc(ordersTable.createdAt))
     .limit(5);
 
-  const recentOrders = recentRows.map((r) => ({
-    id: r.order.id,
-    userId: r.order.userId,
-    customerName: r.user.name,
-    customerEmail: r.user.email,
-    items: r.order.items,
-    total: Number(r.order.total),
-    status: r.order.status,
-    shippingAddress: r.order.shippingAddress,
-    createdAt: r.order.createdAt,
-  }));
+  const recentOrders = recentRows.map((r) => toAdminOrderShape(r.order, r.user));
 
   // Fetch actual revenue from Stripe by summing all succeeded payment intents.
   // Paginates through every page so revenue stays accurate beyond 100 transactions;

@@ -34,4 +34,6 @@ export * from "./registerBody";
 export * from "./stripeHealthStatus";
 export * from "./stripeHealthStatusStatus";
 export * from "./updateCartItemBody";
+export * from "./updateOrderStatusBody";
+export * from "./updateOrderStatusBodyStatus";
 export * from "./user";

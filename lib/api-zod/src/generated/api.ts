@@ -372,6 +372,26 @@ export const ListOrdersResponseItem = zod.object({
     .string()
     .nullish()
     .describe("Last 4 digits of the card used for payment"),
+  trackingNumber: zod
+    .string()
+    .nullish()
+    .describe("Carrier tracking number once the order ships"),
+  carrier: zod
+    .string()
+    .nullish()
+    .describe("Shipping carrier (e.g. UPS, USPS, FedEx)"),
+  shippedAt: zod.coerce
+    .date()
+    .nullish()
+    .describe("Timestamp when the order was shipped"),
+  deliveredAt: zod.coerce
+    .date()
+    .nullish()
+    .describe("Timestamp when the order was delivered"),
+  estimatedDeliveryAt: zod.coerce
+    .date()
+    .nullish()
+    .describe("Estimated delivery date"),
   createdAt: zod.coerce.date(),
 });
 export const ListOrdersResponse = zod.array(ListOrdersResponseItem);
@@ -424,6 +444,26 @@ export const GetOrderResponse = zod.object({
     .string()
     .nullish()
     .describe("Last 4 digits of the card used for payment"),
+  trackingNumber: zod
+    .string()
+    .nullish()
+    .describe("Carrier tracking number once the order ships"),
+  carrier: zod
+    .string()
+    .nullish()
+    .describe("Shipping carrier (e.g. UPS, USPS, FedEx)"),
+  shippedAt: zod.coerce
+    .date()
+    .nullish()
+    .describe("Timestamp when the order was shipped"),
+  deliveredAt: zod.coerce
+    .date()
+    .nullish()
+    .describe("Timestamp when the order was delivered"),
+  estimatedDeliveryAt: zod.coerce
+    .date()
+    .nullish()
+    .describe("Estimated delivery date"),
   createdAt: zod.coerce.date(),
 });
 
@@ -501,6 +541,11 @@ export const GetAdminStatsResponse = zod.object({
         "cancelled",
       ]),
       shippingAddress: zod.string(),
+      trackingNumber: zod.string().nullish(),
+      carrier: zod.string().nullish(),
+      shippedAt: zod.coerce.date().nullish(),
+      deliveredAt: zod.coerce.date().nullish(),
+      estimatedDeliveryAt: zod.coerce.date().nullish(),
       createdAt: zod.coerce.date(),
     }),
   ),
@@ -546,9 +591,69 @@ export const ListAdminOrdersResponseItem = zod.object({
     "cancelled",
   ]),
   shippingAddress: zod.string(),
+  trackingNumber: zod.string().nullish(),
+  carrier: zod.string().nullish(),
+  shippedAt: zod.coerce.date().nullish(),
+  deliveredAt: zod.coerce.date().nullish(),
+  estimatedDeliveryAt: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
 });
 export const ListAdminOrdersResponse = zod.array(ListAdminOrdersResponseItem);
+
+/**
+ * @summary Update an order's shipping/fulfillment status (admin)
+ */
+export const UpdateOrderStatusParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateOrderStatusBody = zod.object({
+  status: zod.enum([
+    "pending",
+    "processing",
+    "shipped",
+    "delivered",
+    "cancelled",
+  ]),
+  trackingNumber: zod.string().nullish(),
+  carrier: zod.string().nullish(),
+  estimatedDeliveryAt: zod.coerce.date().nullish(),
+});
+
+export const UpdateOrderStatusResponse = zod.object({
+  id: zod.number(),
+  userId: zod.number(),
+  customerName: zod.string(),
+  customerEmail: zod.string(),
+  items: zod.array(
+    zod.object({
+      productId: zod.string().describe("Stripe product ID (prod_...)"),
+      productName: zod.string(),
+      stripePriceId: zod
+        .string()
+        .optional()
+        .describe("Stripe price ID (price_...)"),
+      price: zod.number(),
+      quantity: zod.number(),
+      size: zod.string(),
+    }),
+  ),
+  total: zod.number(),
+  status: zod.enum([
+    "pending",
+    "processing",
+    "shipped",
+    "delivered",
+    "cancelled",
+  ]),
+  shippingAddress: zod.string(),
+  trackingNumber: zod.string().nullish(),
+  carrier: zod.string().nullish(),
+  shippedAt: zod.coerce.date().nullish(),
+  deliveredAt: zod.coerce.date().nullish(),
+  estimatedDeliveryAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+});
 
 /**
  * @summary List all customers (admin)
