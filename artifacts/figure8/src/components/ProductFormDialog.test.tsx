@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -425,6 +425,206 @@ describe("ProductFormDialog required-field validation", () => {
     expect(updateMutate).toHaveBeenCalledTimes(1);
     const [variables] = updateMutate.mock.calls[0];
     expect(variables.data.imageUrl).toBe("");
+  });
+});
+
+describe("ProductFormDialog photo upload", () => {
+  const originalFetch = global.fetch;
+
+  beforeEach(() => {
+    updateMutate.mockReset();
+    createMutate.mockReset();
+    vi.mocked(toast.error).mockReset();
+    vi.mocked(toast.success).mockReset();
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it("rejects a file larger than 10MB with an error toast and never issues a fetch", async () => {
+    const user = userEvent.setup();
+    const fetchSpy = vi.fn();
+    global.fetch = fetchSpy as unknown as typeof fetch;
+
+    renderDialog();
+    const dialog = await openDialog(user);
+
+    // 11MB > 10MB cap. Backed by a real ArrayBuffer so .size is accurate.
+    const bigFile = new File(
+      [new ArrayBuffer(11 * 1024 * 1024)],
+      "huge.jpg",
+      { type: "image/jpeg" },
+    );
+
+    const fileInput = within(dialog).getByTestId(
+      "input-product-image",
+    ) as HTMLInputElement;
+    await user.upload(fileInput, bigFile);
+
+    expect(toast.error).toHaveBeenCalledWith("Image must be 10MB or smaller");
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(toast.success).not.toHaveBeenCalled();
+
+    // Button still says "Upload photo" because no image has been set.
+    expect(
+      within(dialog).getByTestId("button-upload-image"),
+    ).toHaveTextContent(/Upload photo/i);
+    // No preview image has been added.
+    expect(
+      within(dialog).queryByAltText("Preview"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("sets the preview image and shows a success toast when the upload succeeds", async () => {
+    const user = userEvent.setup();
+    const uploadedUrl = "https://cdn.example.com/uploads/new-photo.png";
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ url: uploadedUrl }),
+    });
+    global.fetch = fetchSpy as unknown as typeof fetch;
+
+    renderDialog();
+    const dialog = await openDialog(user);
+
+    // baseProduct has imageUrl: "" so the button starts as "Upload photo".
+    const uploadButton = within(dialog).getByTestId(
+      "button-upload-image",
+    ) as HTMLButtonElement;
+    expect(uploadButton).toHaveTextContent(/Upload photo/i);
+    expect(within(dialog).queryByAltText("Preview")).not.toBeInTheDocument();
+
+    const file = new File(["hello"], "photo.png", { type: "image/png" });
+    const fileInput = within(dialog).getByTestId(
+      "input-product-image",
+    ) as HTMLInputElement;
+    await user.upload(fileInput, file);
+
+    // fetch was called with a FormData body containing the file.
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [, init] = fetchSpy.mock.calls[0];
+    expect(init.method).toBe("POST");
+    expect(init.body).toBeInstanceOf(FormData);
+    expect((init.body as FormData).get("image")).toBeInstanceOf(File);
+
+    // Preview image renders with the returned URL.
+    const preview = await within(dialog).findByAltText("Preview");
+    expect(preview).toHaveAttribute("src", uploadedUrl);
+
+    // Success toast and the button now reads "Replace photo".
+    expect(toast.success).toHaveBeenCalledWith("Photo uploaded");
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(uploadButton).toHaveTextContent(/Replace photo/i);
+  });
+
+  it("shows an error toast and leaves imageUrl unchanged when fetch returns a non-2xx response", async () => {
+    const user = userEvent.setup();
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: false,
+      json: async () => ({ error: "File rejected by server" }),
+    });
+    global.fetch = fetchSpy as unknown as typeof fetch;
+
+    // Start with a product that already has a photo so we can prove it
+    // was NOT replaced by the failed upload.
+    const productWithPhoto = {
+      ...baseProduct,
+      imageUrl: "https://cdn.example.com/existing.png",
+    } as unknown as Product;
+    renderDialog(productWithPhoto);
+    const dialog = await openDialog(user);
+
+    const preview = within(dialog).getByAltText("Preview") as HTMLImageElement;
+    expect(preview.src).toBe("https://cdn.example.com/existing.png");
+
+    const file = new File(["x"], "photo.png", { type: "image/png" });
+    await user.upload(
+      within(dialog).getByTestId("input-product-image") as HTMLInputElement,
+      file,
+    );
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(toast.error).toHaveBeenCalledWith("File rejected by server");
+    expect(toast.success).not.toHaveBeenCalled();
+
+    // The original photo is still there — submitting the form proves
+    // imageUrl was not overwritten.
+    const stillPreview = within(dialog).getByAltText(
+      "Preview",
+    ) as HTMLImageElement;
+    expect(stillPreview.src).toBe("https://cdn.example.com/existing.png");
+
+    await user.click(within(dialog).getByTestId("button-submit-product"));
+    expect(updateMutate).toHaveBeenCalledTimes(1);
+    const [variables] = updateMutate.mock.calls[0];
+    expect(variables.data.imageUrl).toBe("https://cdn.example.com/existing.png");
+  });
+
+  it("shows an error toast and leaves imageUrl unchanged when fetch throws", async () => {
+    const user = userEvent.setup();
+    const fetchSpy = vi.fn().mockRejectedValue(new Error("Network down"));
+    global.fetch = fetchSpy as unknown as typeof fetch;
+
+    const productWithPhoto = {
+      ...baseProduct,
+      imageUrl: "https://cdn.example.com/existing.png",
+    } as unknown as Product;
+    renderDialog(productWithPhoto);
+    const dialog = await openDialog(user);
+
+    const file = new File(["x"], "photo.png", { type: "image/png" });
+    await user.upload(
+      within(dialog).getByTestId("input-product-image") as HTMLInputElement,
+      file,
+    );
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(toast.error).toHaveBeenCalledWith("Network down");
+    expect(toast.success).not.toHaveBeenCalled();
+
+    const preview = within(dialog).getByAltText("Preview") as HTMLImageElement;
+    expect(preview.src).toBe("https://cdn.example.com/existing.png");
+  });
+
+  it("disables the upload button while an upload is in flight and re-enables it after", async () => {
+    const user = userEvent.setup();
+    let resolveFetch: (value: { ok: boolean; json: () => Promise<unknown> }) => void = () => {};
+    const fetchPromise = new Promise<{ ok: boolean; json: () => Promise<unknown> }>(
+      (resolve) => {
+        resolveFetch = resolve;
+      },
+    );
+    const fetchSpy = vi.fn().mockReturnValue(fetchPromise);
+    global.fetch = fetchSpy as unknown as typeof fetch;
+
+    renderDialog();
+    const dialog = await openDialog(user);
+
+    const uploadButton = within(dialog).getByTestId(
+      "button-upload-image",
+    ) as HTMLButtonElement;
+    expect(uploadButton).not.toBeDisabled();
+
+    const file = new File(["x"], "photo.png", { type: "image/png" });
+    await user.upload(
+      within(dialog).getByTestId("input-product-image") as HTMLInputElement,
+      file,
+    );
+
+    // Mid-flight: button should be disabled, label still "Upload photo".
+    expect(uploadButton).toBeDisabled();
+    expect(uploadButton).toHaveTextContent(/Upload photo/i);
+
+    // Resolve the upload and wait for the post-upload state to settle.
+    resolveFetch({
+      ok: true,
+      json: async () => ({ url: "https://cdn.example.com/done.png" }),
+    });
+    await within(dialog).findByAltText("Preview");
+
+    expect(uploadButton).not.toBeDisabled();
+    expect(uploadButton).toHaveTextContent(/Replace photo/i);
   });
 });
 
