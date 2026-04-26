@@ -75,6 +75,18 @@ Categories: sets, tops, bottoms, outerwear
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - `pnpm --filter @workspace/api-server run dev` — run API server locally
+- `pnpm --filter @workspace/figure8 run test` — run frontend component tests (Vitest + React Testing Library, jsdom)
+
+## Frontend Tests
+
+Vitest + React Testing Library, jsdom environment. Config at
+`artifacts/figure8/vitest.config.ts`, setup at `artifacts/figure8/src/test/setup.ts`
+(adds `@testing-library/jest-dom` matchers, jsdom polyfills for Radix pointer
+APIs, and a default `sonner` toast mock). Test files live next to the
+component as `*.test.tsx` and are excluded from `tsc` typecheck via the
+artifact's `tsconfig.json`. Mock generated API hooks (`useUpdateProduct`,
+etc.) at the module level — they're plain React Query mutations so a stub
+returning `{ mutate, isPending: false }` is enough.
 
 ## Transactional Email
 
