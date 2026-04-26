@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -46,7 +46,21 @@ router.use("/uploads", (req, res, next) => {
 router.post(
   "/upload/image",
   requireAdmin,
-  upload.single("image"),
+  (req: Request, res: Response, next: NextFunction) => {
+    upload.single("image")(req, res, (err: unknown) => {
+      if (err) {
+        const message =
+          err instanceof multer.MulterError
+            ? err.message
+            : err instanceof Error
+              ? err.message
+              : "Upload failed";
+        res.status(400).json({ error: message });
+        return;
+      }
+      next();
+    });
+  },
   (req: AuthRequest, res): void => {
     if (!req.file) {
       res.status(400).json({ error: "No file uploaded" });

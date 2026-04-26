@@ -274,6 +274,45 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /products/{id}/image:
+    put:
+      operationId: updateProductImage
+      tags: [products, admin]
+      summary: Update only the image URL of a product (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProductImageBody"
+      responses:
+        "200":
+          description: Updated product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /products/featured:
     get:
       operationId: listFeaturedProducts
@@ -955,6 +994,14 @@ components:
         - size
         - color
         - stock
+
+    UpdateProductImageBody:
+      type: object
+      properties:
+        imageUrl:
+          type: string
+      required:
+        - imageUrl
 
     CreateProductBody:
       type: object

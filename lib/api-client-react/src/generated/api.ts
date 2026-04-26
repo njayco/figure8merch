@@ -44,6 +44,7 @@ import type {
   UpdateCartItemBody,
   UpdateCartItemParams,
   UpdateOrderStatusBody,
+  UpdateProductImageBody,
   UpdateVariantStockBody,
   User,
 } from "./api.schemas";
@@ -891,6 +892,93 @@ export const useUpdateProductVariantStock = <
   TContext
 > => {
   return useMutation(getUpdateProductVariantStockMutationOptions(options));
+};
+
+/**
+ * @summary Update only the image URL of a product (admin)
+ */
+export const getUpdateProductImageUrl = (id: string) => {
+  return `/api/products/${id}/image`;
+};
+
+export const updateProductImage = async (
+  id: string,
+  updateProductImageBody: UpdateProductImageBody,
+  options?: RequestInit,
+): Promise<Product> => {
+  return customFetch<Product>(getUpdateProductImageUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateProductImageBody),
+  });
+};
+
+export const getUpdateProductImageMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateProductImage>>,
+    TError,
+    { id: string; data: BodyType<UpdateProductImageBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateProductImage>>,
+  TError,
+  { id: string; data: BodyType<UpdateProductImageBody> },
+  TContext
+> => {
+  const mutationKey = ["updateProductImage"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateProductImage>>,
+    { id: string; data: BodyType<UpdateProductImageBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateProductImage(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateProductImageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateProductImage>>
+>;
+export type UpdateProductImageMutationBody = BodyType<UpdateProductImageBody>;
+export type UpdateProductImageMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Update only the image URL of a product (admin)
+ */
+export const useUpdateProductImage = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateProductImage>>,
+    TError,
+    { id: string; data: BodyType<UpdateProductImageBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateProductImage>>,
+  TError,
+  { id: string; data: BodyType<UpdateProductImageBody> },
+  TContext
+> => {
+  return useMutation(getUpdateProductImageMutationOptions(options));
 };
 
 /**

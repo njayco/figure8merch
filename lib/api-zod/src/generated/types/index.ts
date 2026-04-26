@@ -42,5 +42,6 @@ export * from "./updateCartItemBody";
 export * from "./updateCartItemParams";
 export * from "./updateOrderStatusBody";
 export * from "./updateOrderStatusBodyStatus";
+export * from "./updateProductImageBody";
 export * from "./updateVariantStockBody";
 export * from "./user";

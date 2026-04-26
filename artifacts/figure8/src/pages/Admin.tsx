@@ -1,10 +1,12 @@
-import { useGetAdminStats, useListAdminOrders, useListProducts, useListCustomers, useUpdateOrderStatus, useHealthCheck, useListLowStockInventory, useRestockVariant, getListAdminOrdersQueryKey, getGetAdminStatsQueryKey, getHealthCheckQueryKey, getListLowStockInventoryQueryKey, ApiError } from "@workspace/api-client-react";
+import { useGetAdminStats, useListAdminOrders, useListProducts, useListCustomers, useUpdateOrderStatus, useUpdateProductImage, useHealthCheck, useListLowStockInventory, useRestockVariant, getListProductsQueryKey, getListAdminOrdersQueryKey, getGetAdminStatsQueryKey, getListFeaturedProductsQueryKey, getGetProductQueryKey, getHealthCheckQueryKey, getListLowStockInventoryQueryKey, ApiError } from "@workspace/api-client-react";
 import type { Product, ProductVariant, AdminOrder, UpdateOrderStatusBodyStatus, HealthStatus, LowStockVariant } from "@workspace/api-client-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { NewProductDialog, EditProductDialog } from "@/components/ProductFormDialog";
 import { ProductImage } from "@/components/ProductImage";
 import { StockQuickEditDialog } from "@/components/StockQuickEditDialog";
 import { Spinner } from "@/components/ui/spinner";
+import { cn } from "@/lib/utils";
+import { getToken } from "@/lib/auth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,12 +17,13 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Users, ShoppingBag, DollarSign, Package, ExternalLink, Info, AlertTriangle, TrendingUp, Pencil, PackageOpen, PackageX, Plus } from "lucide-react";
+import { Users, ShoppingBag, DollarSign, Package, ExternalLink, Info, AlertTriangle, TrendingUp, Pencil, PackageOpen, PackageX, Plus, Upload } from "lucide-react";
 import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 const RESTOCK_AMOUNT = 10;
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
 const ORDER_STATUS_OPTIONS: Array<{ value: UpdateOrderStatusBodyStatus; label: string }> = [
   { value: "pending", label: "Pending" },
@@ -391,6 +394,102 @@ function OrderItemThumbnails({ items }: { items: AdminOrder["items"] }) {
   );
 }
 
+function ProductImageUploadCell({ product }: { product: Product }) {
+  const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const updateImage = useUpdateProductImage({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getListFeaturedProductsQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetProductQueryKey(product.id) });
+        queryClient.invalidateQueries({ queryKey: getListLowStockInventoryQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetAdminStatsQueryKey() });
+        toast.success("Photo updated");
+      },
+      onError: (err) => {
+        toast.error(err instanceof Error ? err.message : "Failed to update photo");
+      },
+    },
+  });
+
+  const isPending = uploading || updateImage.isPending;
+  const hasPhoto = !!product.imageUrl;
+  const actionLabel = hasPhoto ? "Replace photo" : "Upload photo";
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Image must be 10MB or smaller");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+      const resp = await fetch(`${BASE}/api/upload/image`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${getToken() ?? ""}` },
+        body: formData,
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        throw new Error(data.error || "Upload failed");
+      }
+      updateImage.mutate({ id: product.id, data: { imageUrl: data.url } });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  return (
+    <>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileChange}
+        className="hidden"
+        data-testid={`input-upload-image-${product.id}`}
+      />
+      <button
+        type="button"
+        disabled={isPending}
+        onClick={() => fileInputRef.current?.click()}
+        title={actionLabel}
+        aria-label={`${actionLabel} for ${product.name}`}
+        className="group relative h-12 w-12 overflow-hidden border border-border bg-muted shrink-0 block focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:cursor-wait"
+        data-testid={`button-upload-image-${product.id}`}
+      >
+        <ProductImage
+          src={product.imageUrl}
+          alt={product.name}
+          productId={product.id}
+          compact
+        />
+        <span
+          aria-hidden="true"
+          className={cn(
+            "absolute inset-0 flex items-center justify-center bg-black/60 text-white transition-opacity",
+            isPending
+              ? "opacity-100"
+              : "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100"
+          )}
+        >
+          {isPending ? <Spinner className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
+        </span>
+      </button>
+    </>
+  );
+}
+
 export function Admin() {
   const { data: stats, isLoading: statsLoading } = useGetAdminStats();
   const { data: orders, isLoading: ordersLoading } = useListAdminOrders();
@@ -692,16 +791,8 @@ export function Admin() {
                   {products?.map((product: Product) => (
                     <TableRow key={product.id} data-testid={`row-product-${product.id}`}>
                       <TableCell>
-                        <div
-                          className="h-12 w-12 overflow-hidden border border-border bg-muted shrink-0"
-                          data-testid={`thumb-product-${product.id}`}
-                        >
-                          <ProductImage
-                            src={product.imageUrl}
-                            alt={product.name}
-                            productId={product.id}
-                            compact
-                          />
+                        <div data-testid={`thumb-product-${product.id}`}>
+                          <ProductImageUploadCell product={product} />
                         </div>
                       </TableCell>
                       <TableCell>

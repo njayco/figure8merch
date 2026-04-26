@@ -108,6 +108,10 @@ export interface UpdateVariantStockBody {
   stock: number;
 }
 
+export interface UpdateProductImageBody {
+  imageUrl: string;
+}
+
 export interface CreateProductBody {
   name: string;
   description: string;

@@ -1,5 +1,9 @@
-import { Router, type IRouter } from "express";
-import { CreateProductBody, UpdateProductVariantStockBody } from "@workspace/api-zod";
+import { Router, type IRouter, type Request } from "express";
+import {
+  CreateProductBody,
+  UpdateProductImageBody,
+  UpdateProductVariantStockBody,
+} from "@workspace/api-zod";
 import { db, productVariantsTable } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import {
@@ -16,6 +20,17 @@ import { getUncachableStripeClient } from "../lib/stripeClient";
 import type Stripe from "stripe";
 
 const router: IRouter = Router();
+
+function toAbsoluteImageUrl(rawUrl: string, req: Request): string {
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return "";
+  if (trimmed.startsWith("http")) return trimmed;
+  const proto = (req.headers["x-forwarded-proto"] as string | undefined)
+    ?.split(",")[0]
+    ?.trim();
+  const requestOrigin = `${proto ?? "https"}://${req.headers.host}`;
+  return `${requestOrigin}${trimmed.startsWith("/") ? "" : "/"}${trimmed}`;
+}
 
 router.get("/products/featured", async (_req, res): Promise<void> => {
   try {
@@ -135,16 +150,6 @@ function validateProductBody(
   };
 }
 
-function buildAbsoluteImageUrl(req: { headers: Record<string, unknown> }, raw: string): string {
-  const trimmed = raw.trim();
-  if (!trimmed) return "";
-  if (trimmed.startsWith("http")) return trimmed;
-  const proto = req.headers["x-forwarded-proto"] as string | undefined;
-  const host = req.headers["host"] as string | undefined;
-  const origin = proto ? `${proto.split(",")[0]}://${host}` : `https://${host}`;
-  return `${origin}${trimmed.startsWith("/") ? "" : "/"}${trimmed}`;
-}
-
 router.post("/products", requireAdmin, async (req, res): Promise<void> => {
   const validated = validateProductBody(req.body);
   if (!validated.ok) {
@@ -154,7 +159,8 @@ router.post("/products", requireAdmin, async (req, res): Promise<void> => {
   const { name, description, price, imageUrl, category, sizes, colors, variants, isFeatured } =
     validated.data;
 
-  const absoluteImageUrl = buildAbsoluteImageUrl(req, imageUrl);
+  // Build absolute image URL for Stripe (Stripe rejects relative paths).
+  const absoluteImageUrl = toAbsoluteImageUrl(imageUrl ?? "", req);
 
   let stripeProductId: string | null = null;
   try {
@@ -471,6 +477,58 @@ router.patch(
     }
   },
 );
+
+router.put("/products/:id/image", requireAdmin, async (req, res): Promise<void> => {
+  const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+
+  const parsed = UpdateProductImageBody.safeParse(req.body);
+  if (!parsed.success) {
+    const message = parsed.error.issues.map((i: { message: string }) => i.message).join("; ");
+    res.status(400).json({ error: message || "Invalid image data" });
+    return;
+  }
+
+  const trimmed = parsed.data.imageUrl.trim();
+  if (!trimmed) {
+    res.status(400).json({ error: "Image URL is required" });
+    return;
+  }
+
+  const existing = await getStripeProduct(id);
+  if (!existing) {
+    res.status(404).json({ error: "Product not found" });
+    return;
+  }
+
+  const absoluteImageUrl = toAbsoluteImageUrl(trimmed, req);
+
+  try {
+    const stripe = await getUncachableStripeClient();
+    const updated = await stripe.products.update(id, {
+      images: [absoluteImageUrl],
+    });
+
+    const variants = await getVariantsForProduct(id);
+    res.json(
+      toProductShape(
+        {
+          id: updated.id,
+          name: updated.name,
+          description: updated.description ?? null,
+          metadata: (updated.metadata ?? null) as Record<string, string> | null,
+          images: updated.images ?? null,
+          created: updated.created ?? null,
+          price_id: existing.price_id,
+          unit_amount: existing.unit_amount,
+        },
+        variants,
+      ),
+    );
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to update product image";
+    res.status(500).json({ error: message });
+  }
+});
 
 router.delete("/products/:id", requireAdmin, async (_req, res): Promise<void> => {
   res

@@ -246,6 +246,48 @@ export const UpdateProductVariantStockResponse = zod.object({
 });
 
 /**
+ * @summary Update only the image URL of a product (admin)
+ */
+export const UpdateProductImageParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const UpdateProductImageBody = zod.object({
+  imageUrl: zod.string(),
+});
+
+export const UpdateProductImageResponse = zod.object({
+  id: zod.string().describe("Stripe product ID (prod_...)"),
+  name: zod.string(),
+  description: zod.string(),
+  price: zod.number(),
+  imageUrl: zod.string(),
+  category: zod.string(),
+  sizes: zod.array(zod.string()),
+  colors: zod.array(zod.string()),
+  variants: zod
+    .array(
+      zod.object({
+        size: zod.string(),
+        color: zod.string(),
+        stock: zod.number(),
+      }),
+    )
+    .describe(
+      "Per (size, color) inventory rows. Empty when product has no variants configured (then stock is unlimited).",
+    ),
+  totalStock: zod
+    .number()
+    .nullish()
+    .describe(
+      "Sum of stock across all variants. Null when no variants are configured.",
+    ),
+  isFeatured: zod.boolean(),
+  createdAt: zod.coerce.date(),
+  stripePriceId: zod.string().describe("Stripe price ID (price_...)"),
+});
+
+/**
  * @summary List featured / selected pieces
  */
 export const ListFeaturedProductsResponseItem = zod.object({
