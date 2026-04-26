@@ -3,6 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Product } from "@workspace/api-client-react";
+import { toast } from "sonner";
 
 const updateMutate = vi.fn();
 const createMutate = vi.fn();
@@ -65,6 +66,8 @@ describe("ProductFormDialog price-change confirmation flow", () => {
   beforeEach(() => {
     updateMutate.mockReset();
     createMutate.mockReset();
+    vi.mocked(toast.error).mockReset();
+    vi.mocked(toast.success).mockReset();
   });
 
   it("warns about a price change, asks for confirmation, lets the user cancel back to edit, and then save with the new price", async () => {
@@ -175,5 +178,305 @@ describe("ProductFormDialog price-change confirmation flow", () => {
         price: baseProduct.price,
       }),
     });
+  });
+});
+
+describe("ProductFormDialog size and color management", () => {
+  beforeEach(() => {
+    updateMutate.mockReset();
+    createMutate.mockReset();
+    vi.mocked(toast.error).mockReset();
+    vi.mocked(toast.success).mockReset();
+  });
+
+  it("adds a new size and grows the stock grid with a row for it", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    const dialog = await openDialog(user);
+
+    // Existing sizes from baseProduct render as S and M rows in the grid.
+    expect(within(dialog).getByTestId("input-stock-S-Black")).toBeInTheDocument();
+    expect(within(dialog).getByTestId("input-stock-M-Black")).toBeInTheDocument();
+    expect(
+      within(dialog).queryByTestId("input-stock-L-Black"),
+    ).not.toBeInTheDocument();
+
+    // Add a new size "L" — it should normalize to upper-case and appear in the grid.
+    const sizeInput = within(dialog).getByTestId("input-size");
+    await user.type(sizeInput, "l");
+    await user.click(within(dialog).getByTestId("button-add-size"));
+
+    expect(within(dialog).getByTestId("input-stock-L-Black")).toBeInTheDocument();
+    // The badge appears in the sizes list for removal.
+    const sizesList = within(dialog).getByTestId("list-sizes");
+    expect(within(sizesList).getByText("L")).toBeInTheDocument();
+  });
+
+  it("removes an existing size and drops its row from the stock grid", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    const dialog = await openDialog(user);
+
+    expect(within(dialog).getByTestId("input-stock-M-Black")).toBeInTheDocument();
+
+    await user.click(within(dialog).getByLabelText("Remove size M"));
+
+    expect(
+      within(dialog).queryByTestId("input-stock-M-Black"),
+    ).not.toBeInTheDocument();
+    // The other size's row is preserved.
+    expect(within(dialog).getByTestId("input-stock-S-Black")).toBeInTheDocument();
+  });
+
+  it("adds a new color and grows the stock grid with a column for it", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    const dialog = await openDialog(user);
+
+    expect(
+      within(dialog).queryByTestId("input-stock-S-Olive"),
+    ).not.toBeInTheDocument();
+
+    const colorInput = within(dialog).getByTestId("input-color");
+    await user.type(colorInput, "Olive");
+    await user.click(within(dialog).getByTestId("button-add-color"));
+
+    expect(within(dialog).getByTestId("input-stock-S-Olive")).toBeInTheDocument();
+    expect(within(dialog).getByTestId("input-stock-M-Olive")).toBeInTheDocument();
+    const colorsList = within(dialog).getByTestId("list-colors");
+    expect(within(colorsList).getByText("Olive")).toBeInTheDocument();
+  });
+
+  it("removes a color and drops its column from the stock grid, including stock entries", async () => {
+    const user = userEvent.setup();
+    // Start from a product with two colors so we can prove the OTHER one survives.
+    const product = {
+      ...baseProduct,
+      colors: ["Black", "Olive"],
+      variants: [
+        { size: "S", color: "Black", stock: 5 },
+        { size: "M", color: "Black", stock: 3 },
+        { size: "S", color: "Olive", stock: 1 },
+        { size: "M", color: "Olive", stock: 2 },
+      ],
+    } as unknown as Product;
+    renderDialog(product);
+    const dialog = await openDialog(user);
+
+    expect(within(dialog).getByTestId("input-stock-S-Olive")).toBeInTheDocument();
+
+    await user.click(within(dialog).getByLabelText("Remove color Olive"));
+
+    expect(
+      within(dialog).queryByTestId("input-stock-S-Olive"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dialog).queryByTestId("input-stock-M-Olive"),
+    ).not.toBeInTheDocument();
+    // Black column is preserved with original stock values intact.
+    const blackS = within(dialog).getByTestId(
+      "input-stock-S-Black",
+    ) as HTMLInputElement;
+    expect(blackS.value).toBe("5");
+
+    // Submit and verify the Olive variants are NOT in the body.
+    await user.click(within(dialog).getByTestId("button-submit-product"));
+    expect(updateMutate).toHaveBeenCalledTimes(1);
+    const [variables] = updateMutate.mock.calls[0];
+    expect(variables.data.colors).toEqual(["Black"]);
+    expect(variables.data.variants).toEqual([
+      { size: "S", color: "Black", stock: 5 },
+      { size: "M", color: "Black", stock: 3 },
+    ]);
+  });
+
+  it("ignores duplicate sizes and clears the input", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    const dialog = await openDialog(user);
+
+    const sizeInput = within(dialog).getByTestId("input-size") as HTMLInputElement;
+    await user.type(sizeInput, "s");
+    await user.click(within(dialog).getByTestId("button-add-size"));
+
+    // Still only one S row in the grid (no duplicate created).
+    expect(within(dialog).getAllByTestId("input-stock-S-Black")).toHaveLength(1);
+    expect(sizeInput.value).toBe("");
+  });
+});
+
+describe("ProductFormDialog stock validation", () => {
+  beforeEach(() => {
+    updateMutate.mockReset();
+    createMutate.mockReset();
+    vi.mocked(toast.error).mockReset();
+    vi.mocked(toast.success).mockReset();
+  });
+
+  it("errors and skips the mutation when a stock cell is left empty", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    const dialog = await openDialog(user);
+
+    const stockCell = within(dialog).getByTestId(
+      "input-stock-S-Black",
+    ) as HTMLInputElement;
+    await user.clear(stockCell);
+
+    await user.click(within(dialog).getByTestId("button-submit-product"));
+
+    expect(toast.error).toHaveBeenCalledWith(
+      expect.stringContaining("Stock for S/Black"),
+    );
+    expect(updateMutate).not.toHaveBeenCalled();
+  });
+
+  it("errors and skips the mutation when a stock cell is a non-integer value", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    const dialog = await openDialog(user);
+
+    const stockCell = within(dialog).getByTestId(
+      "input-stock-S-Black",
+    ) as HTMLInputElement;
+    await user.clear(stockCell);
+    await user.type(stockCell, "1.5");
+
+    await user.click(within(dialog).getByTestId("button-submit-product"));
+
+    expect(toast.error).toHaveBeenCalledWith(
+      expect.stringContaining("Stock for S/Black"),
+    );
+    expect(updateMutate).not.toHaveBeenCalled();
+  });
+
+  it("errors and skips the mutation when a stock cell is negative", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    const dialog = await openDialog(user);
+
+    const stockCell = within(dialog).getByTestId(
+      "input-stock-S-Black",
+    ) as HTMLInputElement;
+    await user.clear(stockCell);
+    // Number inputs strip the leading minus sign typed via keyboard, so
+    // assign the value directly and dispatch an input event the way React expects.
+    const setter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )?.set;
+    setter?.call(stockCell, "-1");
+    stockCell.dispatchEvent(new Event("input", { bubbles: true }));
+
+    await user.click(within(dialog).getByTestId("button-submit-product"));
+
+    expect(toast.error).toHaveBeenCalledWith(
+      expect.stringContaining("Stock for S/Black"),
+    );
+    expect(updateMutate).not.toHaveBeenCalled();
+  });
+});
+
+describe("ProductFormDialog required-field validation", () => {
+  beforeEach(() => {
+    updateMutate.mockReset();
+    createMutate.mockReset();
+    vi.mocked(toast.error).mockReset();
+    vi.mocked(toast.success).mockReset();
+  });
+
+  it("errors when there are no sizes and does not call the mutation", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    const dialog = await openDialog(user);
+
+    // Remove every size badge.
+    await user.click(within(dialog).getByLabelText("Remove size S"));
+    await user.click(within(dialog).getByLabelText("Remove size M"));
+
+    await user.click(within(dialog).getByTestId("button-submit-product"));
+
+    expect(toast.error).toHaveBeenCalledWith("Add at least one size");
+    expect(updateMutate).not.toHaveBeenCalled();
+  });
+
+  it("errors when there are no colors and does not call the mutation", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    const dialog = await openDialog(user);
+
+    await user.click(within(dialog).getByLabelText("Remove color Black"));
+
+    await user.click(within(dialog).getByTestId("button-submit-product"));
+
+    expect(toast.error).toHaveBeenCalledWith("Add at least one color");
+    expect(updateMutate).not.toHaveBeenCalled();
+  });
+
+  it("submits successfully even when no photo has been uploaded", async () => {
+    const user = userEvent.setup();
+    // baseProduct already has imageUrl: "" — confirm the form lets you save without it.
+    renderDialog();
+    const dialog = await openDialog(user);
+
+    await user.click(within(dialog).getByTestId("button-submit-product"));
+
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(updateMutate).toHaveBeenCalledTimes(1);
+    const [variables] = updateMutate.mock.calls[0];
+    expect(variables.data.imageUrl).toBe("");
+  });
+});
+
+describe("ProductFormDialog featured checkbox", () => {
+  beforeEach(() => {
+    updateMutate.mockReset();
+    createMutate.mockReset();
+    vi.mocked(toast.error).mockReset();
+    vi.mocked(toast.success).mockReset();
+  });
+
+  it("includes isFeatured: true in the submitted body when the checkbox is toggled on", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    const dialog = await openDialog(user);
+
+    const checkbox = within(dialog).getByTestId(
+      "checkbox-product-featured",
+    ) as HTMLInputElement;
+    expect(checkbox.checked).toBe(false);
+
+    await user.click(checkbox);
+    expect(checkbox.checked).toBe(true);
+
+    await user.click(within(dialog).getByTestId("button-submit-product"));
+
+    expect(updateMutate).toHaveBeenCalledTimes(1);
+    const [variables] = updateMutate.mock.calls[0];
+    expect(variables.data.isFeatured).toBe(true);
+  });
+
+  it("includes isFeatured: false in the submitted body when the checkbox is toggled off", async () => {
+    const user = userEvent.setup();
+    const featuredProduct = {
+      ...baseProduct,
+      isFeatured: true,
+    } as unknown as Product;
+    renderDialog(featuredProduct);
+    const dialog = await openDialog(user);
+
+    const checkbox = within(dialog).getByTestId(
+      "checkbox-product-featured",
+    ) as HTMLInputElement;
+    expect(checkbox.checked).toBe(true);
+
+    await user.click(checkbox);
+    expect(checkbox.checked).toBe(false);
+
+    await user.click(within(dialog).getByTestId("button-submit-product"));
+
+    expect(updateMutate).toHaveBeenCalledTimes(1);
+    const [variables] = updateMutate.mock.calls[0];
+    expect(variables.data.isFeatured).toBe(false);
   });
 });
