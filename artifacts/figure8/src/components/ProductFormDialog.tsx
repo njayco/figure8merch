@@ -4,9 +4,14 @@ import {
   useCreateProduct,
   useUpdateProduct,
   getListProductsQueryKey,
+  getGetProductQueryKey,
   getGetAdminStatsQueryKey,
 } from "@workspace/api-client-react";
-import type { CreateProductBody, Product } from "@workspace/api-client-react";
+import type {
+  CreateProductBody,
+  ListProductsParams,
+  Product,
+} from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -254,9 +259,58 @@ export function ProductFormDialog(props: ProductFormDialogProps) {
       isFeatured,
     };
 
-    const onSuccess = () => {
-      queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() });
+    const onSuccess = (saved: Product) => {
+      // Optimistically merge the canonical response into all cached product
+      // lists so the admin table reflects the change instantly, instead of
+      // waiting for the Stripe-synced GET /api/products view to catch up
+      // (which takes 1–10s after a webhook fires).
+      const cache = queryClient.getQueryCache();
+      const listQueries = cache.findAll({
+        queryKey: getListProductsQueryKey(),
+      });
+      for (const query of listQueries) {
+        const key = query.queryKey;
+        // Guard against unrelated keys whose first segment happens to share a
+        // prefix (e.g. "/api/products/:id") — only operate on list caches.
+        if (key[0] !== "/api/products") continue;
+        const params = (key[1] ?? undefined) as ListProductsParams | undefined;
+        const categoryFilter = params?.category;
+        const featuredFilter = params?.featured;
+        const searchFilter = params?.search;
+        const matchesFilter =
+          (!categoryFilter || saved.category === categoryFilter) &&
+          (featuredFilter !== true || saved.isFeatured === true) &&
+          (!searchFilter ||
+            saved.name.toLowerCase().includes(searchFilter.toLowerCase()));
+
+        queryClient.setQueryData<Product[] | undefined>(key, (old) => {
+          if (!old) return old;
+          const idx = old.findIndex((p) => p.id === saved.id);
+          if (idx >= 0) {
+            if (!matchesFilter) {
+              // Edit removed it from this filtered view (e.g. category changed)
+              return old.filter((p) => p.id !== saved.id);
+            }
+            const next = old.slice();
+            next[idx] = saved;
+            return next;
+          }
+          // Not present yet — insert at the top to mirror the server's
+          // `created DESC` ordering for newly created products (or for edits
+          // that newly match a filtered view).
+          if (!matchesFilter) return old;
+          return [saved, ...old];
+        });
+      }
+
+      // Keep the per-product cache in sync for any open detail views.
+      queryClient.setQueryData<Product>(getGetProductQueryKey(saved.id), saved);
+
+      // Stats (product count, low/out-of-stock counts) can still lag the
+      // Stripe-synced view, but they're a separate widget — invalidate so
+      // they refetch in the background.
       queryClient.invalidateQueries({ queryKey: getGetAdminStatsQueryKey() });
+
       toast.success(isEdit ? "Product updated" : "Product created");
       handleClose(false);
     };
