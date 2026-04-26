@@ -27,7 +27,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
-import { Plus, X, Upload, Pencil } from "lucide-react";
+import { Plus, X, Upload, Pencil, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
@@ -49,6 +49,8 @@ export function ProductFormDialog(props: ProductFormDialogProps) {
 
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [confirmPriceOpen, setConfirmPriceOpen] = useState(false);
+  const [pendingBody, setPendingBody] = useState<CreateProductBody | null>(null);
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -114,8 +116,21 @@ export function ProductFormDialog(props: ProductFormDialogProps) {
   const handleClose = (next: boolean) => {
     if (isPending) return;
     setOpen(next);
-    if (!next) populateFromProduct(null);
+    if (!next) {
+      populateFromProduct(null);
+      setConfirmPriceOpen(false);
+      setPendingBody(null);
+    }
   };
+
+  const numericPriceParsed = Number(price);
+  const originalPrice = editingProduct?.price ?? null;
+  const priceChanged =
+    isEdit &&
+    originalPrice !== null &&
+    Number.isFinite(numericPriceParsed) &&
+    numericPriceParsed > 0 &&
+    numericPriceParsed !== originalPrice;
 
   const addSize = () => {
     const v = sizeInput.trim().toUpperCase();
@@ -207,8 +222,8 @@ export function ProductFormDialog(props: ProductFormDialogProps) {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
 
     const trimmedName = name.trim();
     const trimmedDescription = description.trim();
@@ -259,6 +274,21 @@ export function ProductFormDialog(props: ProductFormDialogProps) {
       isFeatured,
     };
 
+    if (
+      isEdit &&
+      editingProduct &&
+      originalPrice !== null &&
+      numericPrice !== originalPrice
+    ) {
+      setPendingBody(body);
+      setConfirmPriceOpen(true);
+      return;
+    }
+
+    submitBody(body);
+  };
+
+  const submitBody = (body: CreateProductBody) => {
     const onSuccess = (saved: Product) => {
       // Optimistically merge the canonical response into all cached product
       // lists so the admin table reflects the change instantly, instead of
@@ -329,6 +359,14 @@ export function ProductFormDialog(props: ProductFormDialogProps) {
     } else {
       createProduct.mutate({ data: body }, { onSuccess, onError });
     }
+  };
+
+  const handleConfirmPriceChange = () => {
+    if (!pendingBody) return;
+    const body = pendingBody;
+    setConfirmPriceOpen(false);
+    setPendingBody(null);
+    submitBody(body);
   };
 
   const defaultTrigger = isEdit ? (
@@ -437,6 +475,19 @@ export function ProductFormDialog(props: ProductFormDialogProps) {
                 className="rounded-none"
                 data-testid="input-product-price"
               />
+              {priceChanged && (
+                <div
+                  className="flex items-start gap-2 border border-amber-500/50 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-xs text-amber-900 dark:text-amber-200"
+                  data-testid="text-price-change-warning"
+                >
+                  <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                  <span>
+                    Changing the price will create a new Stripe price and
+                    deactivate the old one. Past orders keep their original
+                    price.
+                  </span>
+                </div>
+              )}
             </div>
             <div className="flex items-end gap-2">
               <input
@@ -642,24 +693,84 @@ export function ProductFormDialog(props: ProductFormDialogProps) {
             </div>
           )}
 
-          <DialogFooter>
+          {confirmPriceOpen && pendingBody && (
+            <div
+              className="border border-amber-500/60 bg-amber-50 dark:bg-amber-950/40 p-4 space-y-3"
+              data-testid="dialog-confirm-price-change"
+              role="alertdialog"
+              aria-labelledby="confirm-price-title"
+            >
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p
+                    id="confirm-price-title"
+                    className="font-serif text-base text-amber-900 dark:text-amber-100"
+                  >
+                    Create a new Stripe price?
+                  </p>
+                  <p className="text-xs text-amber-900 dark:text-amber-200">
+                    You're changing the price from{" "}
+                    <span className="font-medium">
+                      ${originalPrice?.toFixed(2)}
+                    </span>{" "}
+                    to{" "}
+                    <span className="font-medium">
+                      $
+                      {Number.isFinite(numericPriceParsed)
+                        ? numericPriceParsed.toFixed(2)
+                        : price}
+                    </span>
+                    . Stripe prices can't be edited, so saving will create a
+                    new Stripe price and deactivate the old one. Past orders,
+                    invoices, and reports will keep their original price.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="sticky bottom-0 bg-background pt-4 -mx-6 px-6 -mb-6 pb-6 border-t">
             <Button
               type="button"
               variant="outline"
               className="rounded-none uppercase tracking-widest text-xs"
-              onClick={() => handleClose(false)}
+              onClick={() => {
+                if (confirmPriceOpen) {
+                  setConfirmPriceOpen(false);
+                  setPendingBody(null);
+                } else {
+                  handleClose(false);
+                }
+              }}
               disabled={isPending}
+              data-testid={
+                confirmPriceOpen
+                  ? "button-cancel-price-change"
+                  : "button-cancel-product"
+              }
             >
               Cancel
             </Button>
             <Button
-              type="submit"
+              type="button"
               className="rounded-none uppercase tracking-widest text-xs"
               disabled={isPending || imageUploading}
-              data-testid="button-submit-product"
+              data-testid={
+                confirmPriceOpen
+                  ? "button-confirm-price-change"
+                  : "button-submit-product"
+              }
+              onClick={() => {
+                if (confirmPriceOpen && pendingBody) {
+                  handleConfirmPriceChange();
+                } else {
+                  handleSubmit();
+                }
+              }}
             >
               {isPending && <Spinner className="h-4 w-4 mr-2" />}
-              {submitLabel}
+              {confirmPriceOpen ? "Save with new price" : submitLabel}
             </Button>
           </DialogFooter>
         </form>
