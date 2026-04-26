@@ -6,6 +6,17 @@ import { useAuth } from "@/hooks/useAuth";
 import { Spinner } from "@/components/ui/spinner";
 import { ProductImage } from "@/components/ProductImage";
 import { useQueryClient } from "@tanstack/react-query";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export function Cart() {
   const { user } = useAuth();
@@ -150,13 +161,35 @@ export function Cart() {
                         </button>
                       </div>
 
-                      <button
-                        onClick={() => handleRemove(item.product.id, item.size, itemColor)}
-                        disabled={removeFromCart.isPending}
-                        className="text-sm text-muted-foreground hover:text-destructive flex items-center uppercase tracking-widest transition-colors font-medium"
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" /> Remove
-                      </button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <button
+                            disabled={removeFromCart.isPending}
+                            className="text-sm text-muted-foreground hover:text-destructive flex items-center uppercase tracking-widest transition-colors font-medium"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" /> Remove
+                          </button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Remove this item?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              {item.product.name}
+                              {` (Size: ${item.size}${itemColor ? `, Color: ${itemColor}` : ""})`}
+                              {" will be removed from your cart."}
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              disabled={removeFromCart.isPending}
+                              onClick={() => handleRemove(item.product.id, item.size, itemColor)}
+                            >
+                              Remove
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                   </div>
                 </div>

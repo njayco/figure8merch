@@ -237,12 +237,39 @@ describe("Cart quantity controls", () => {
 });
 
 describe("Cart remove button", () => {
-  it("calls useRemoveFromCart with the line's product / size / color when Remove is clicked", async () => {
+  it("opens a confirmation dialog instead of removing immediately when Remove is clicked", async () => {
     const user = userEvent.setup();
     renderCart();
 
     const row = screen.getByTestId("cart-item-prod_1-M-Black");
     await user.click(within(row).getByRole("button", { name: /Remove/i }));
+
+    // The confirm step should not have called the API yet.
+    expect(removeMutate).not.toHaveBeenCalled();
+
+    // The dialog should be visible with details about which line is being removed.
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByText(/Remove this item\?/i)).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/Linen Shirt/i),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/Size: M/i),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/Color: Black/i),
+    ).toBeInTheDocument();
+  });
+
+  it("calls useRemoveFromCart with the line's product / size / color when the confirm button is clicked", async () => {
+    const user = userEvent.setup();
+    renderCart();
+
+    const row = screen.getByTestId("cart-item-prod_1-M-Black");
+    await user.click(within(row).getByRole("button", { name: /Remove/i }));
+
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(within(dialog).getByRole("button", { name: /^Remove$/i }));
 
     expect(removeMutate).toHaveBeenCalledTimes(1);
     const [variables] = removeMutate.mock.calls[0];
@@ -253,12 +280,17 @@ describe("Cart remove button", () => {
     });
   });
 
-  it("omits the color params when removing a line that has no color", async () => {
+  it("omits the color params when confirming removal of a line that has no color", async () => {
     const user = userEvent.setup();
     renderCart();
 
     const row = screen.getByTestId("cart-item-prod_2-L-");
     await user.click(within(row).getByRole("button", { name: /Remove/i }));
+
+    const dialog = await screen.findByRole("alertdialog");
+    // The dialog description should not mention a color when the line has none.
+    expect(within(dialog).queryByText(/Color:/i)).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: /^Remove$/i }));
 
     expect(removeMutate).toHaveBeenCalledTimes(1);
     const [variables] = removeMutate.mock.calls[0];
@@ -269,10 +301,26 @@ describe("Cart remove button", () => {
     });
   });
 
-  it("disables every Remove button while a remove request is in flight", () => {
+  it("does not remove the item when the customer cancels the confirmation", async () => {
+    const user = userEvent.setup();
+    renderCart();
+
+    const row = screen.getByTestId("cart-item-prod_1-M-Black");
+    await user.click(within(row).getByRole("button", { name: /Remove/i }));
+
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(within(dialog).getByRole("button", { name: /Cancel/i }));
+
+    expect(removeMutate).not.toHaveBeenCalled();
+    // Dialog closes after cancel.
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  it("disables every Remove trigger button while a remove request is in flight", () => {
     removeIsPending = true;
     renderCart();
 
+    // Only the row-level trigger buttons should exist (no dialog open), and all should be disabled.
     for (const button of screen.getAllByRole("button", { name: /Remove/i })) {
       expect(button).toBeDisabled();
     }
