@@ -1073,6 +1073,10 @@ components:
           type: string
         color:
           type: string
+        imageUrl:
+          type: string
+          nullable: true
+          description: Current product photo URL, attached at read time so admin views can render thumbnails. May be null/missing for products without an uploaded photo.
       required:
         - productId
         - productName

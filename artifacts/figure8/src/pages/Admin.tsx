@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Users, ShoppingBag, DollarSign, Package, ExternalLink, Info, AlertTriangle, TrendingUp, Pencil, PackageOpen, PackageX, Plus } from "lucide-react";
 import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
@@ -343,6 +344,53 @@ function InventoryRow({ item }: { item: LowStockVariant }) {
   );
 }
 
+function OrderItemThumbnails({ items }: { items: AdminOrder["items"] }) {
+  if (!items || items.length === 0) {
+    return <span className="text-xs text-muted-foreground">—</span>;
+  }
+  return (
+    <div className="flex flex-wrap gap-1.5" data-testid="order-item-thumbnails">
+      {items.map((item, idx) => {
+        const variantParts = [item.size, item.color].filter(
+          (v): v is string => !!v && v.trim() !== "",
+        );
+        const variantLabel = variantParts.join(" · ");
+        return (
+          <Tooltip key={`${item.productId}-${item.size}-${item.color ?? ""}-${idx}`}>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                className="relative h-10 w-10 overflow-hidden border border-border bg-muted/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                data-testid={`order-item-thumbnail-${item.productId}-${idx}`}
+                aria-label={`${item.productName}${variantLabel ? ` (${variantLabel})` : ""}`}
+              >
+                <ProductImage
+                  src={item.imageUrl}
+                  alt={item.productName}
+                  productId={`${item.productId}-${idx}`}
+                  compact
+                />
+                {item.quantity > 1 && (
+                  <span className="absolute bottom-0 right-0 bg-primary text-primary-foreground text-[9px] leading-none px-1 py-0.5 font-mono">
+                    ×{item.quantity}
+                  </span>
+                )}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-[220px]">
+              <div className="font-medium">{item.productName}</div>
+              {variantLabel && (
+                <div className="opacity-80 mt-0.5">{variantLabel}</div>
+              )}
+              <div className="opacity-80 mt-0.5">Qty {item.quantity}</div>
+            </TooltipContent>
+          </Tooltip>
+        );
+      })}
+    </div>
+  );
+}
+
 export function Admin() {
   const { data: stats, isLoading: statsLoading } = useGetAdminStats();
   const { data: orders, isLoading: ordersLoading } = useListAdminOrders();
@@ -554,6 +602,7 @@ export function Admin() {
                 <TableRow className="bg-muted/50 hover:bg-muted/50">
                   <TableHead className="uppercase tracking-wider font-bold">Order ID</TableHead>
                   <TableHead className="uppercase tracking-wider font-bold">Customer</TableHead>
+                  <TableHead className="uppercase tracking-wider font-bold">Items</TableHead>
                   <TableHead className="uppercase tracking-wider font-bold">Date</TableHead>
                   <TableHead className="uppercase tracking-wider font-bold">Total</TableHead>
                   <TableHead className="uppercase tracking-wider font-bold">Tracking</TableHead>
@@ -569,6 +618,9 @@ export function Admin() {
                         <span>{order.customerName}</span>
                         <span className="text-xs text-muted-foreground">{order.customerEmail}</span>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      <OrderItemThumbnails items={order.items} />
                     </TableCell>
                     <TableCell>{format(new Date(order.createdAt), 'MMM dd, yyyy')}</TableCell>
                     <TableCell>${order.total.toFixed(2)}</TableCell>
@@ -589,7 +641,7 @@ export function Admin() {
                 ))}
                 {(!orders || orders.length === 0) && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No orders yet.</TableCell>
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No orders yet.</TableCell>
                   </TableRow>
                 )}
               </TableBody>

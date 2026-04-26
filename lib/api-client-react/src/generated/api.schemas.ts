@@ -156,6 +156,8 @@ export interface OrderItem {
   quantity: number;
   size: string;
   color?: string;
+  /** Current product photo URL, attached at read time so admin views can render thumbnails. May be null/missing for products without an uploaded photo. */
+  imageUrl?: string | null;
 }
 
 export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];

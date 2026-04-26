@@ -132,6 +132,24 @@ export async function getStripeProductSummaries(ids: string[]): Promise<StripePr
   `);
 }
 
+export async function getStripeProductImagesByIds(
+  ids: string[],
+): Promise<Map<string, string | null>> {
+  const map = new Map<string, string | null>();
+  if (ids.length === 0) return map;
+  const idList = sql.join(ids.map((id) => sql`${id}`), sql`, `);
+  const rows = await executeRaw<{ id: string; images: string[] | null }>(sql`
+    SELECT p.id, p.images
+    FROM stripe.products p
+    WHERE p.id IN (${idList})
+  `);
+  for (const r of rows) {
+    const first = Array.isArray(r.images) && r.images.length > 0 ? r.images[0] : null;
+    map.set(r.id, first);
+  }
+  return map;
+}
+
 export async function countActiveStripeProducts(): Promise<number> {
   const rows = await executeRaw<{ count: string }>(sql`
     SELECT COUNT(*) AS count

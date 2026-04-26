@@ -577,6 +577,12 @@ export const ListOrdersResponseItem = zod.object({
       quantity: zod.number(),
       size: zod.string(),
       color: zod.string().optional(),
+      imageUrl: zod
+        .string()
+        .nullish()
+        .describe(
+          "Current product photo URL, attached at read time so admin views can render thumbnails. May be null\/missing for products without an uploaded photo.",
+        ),
     }),
   ),
   total: zod.number(),
@@ -650,6 +656,12 @@ export const GetOrderResponse = zod.object({
       quantity: zod.number(),
       size: zod.string(),
       color: zod.string().optional(),
+      imageUrl: zod
+        .string()
+        .nullish()
+        .describe(
+          "Current product photo URL, attached at read time so admin views can render thumbnails. May be null\/missing for products without an uploaded photo.",
+        ),
     }),
   ),
   total: zod.number(),
@@ -769,6 +781,12 @@ export const GetAdminStatsResponse = zod.object({
           quantity: zod.number(),
           size: zod.string(),
           color: zod.string().optional(),
+          imageUrl: zod
+            .string()
+            .nullish()
+            .describe(
+              "Current product photo URL, attached at read time so admin views can render thumbnails. May be null\/missing for products without an uploaded photo.",
+            ),
         }),
       ),
       total: zod.number(),
@@ -820,6 +838,12 @@ export const ListAdminOrdersResponseItem = zod.object({
       quantity: zod.number(),
       size: zod.string(),
       color: zod.string().optional(),
+      imageUrl: zod
+        .string()
+        .nullish()
+        .describe(
+          "Current product photo URL, attached at read time so admin views can render thumbnails. May be null\/missing for products without an uploaded photo.",
+        ),
     }),
   ),
   total: zod.number(),
@@ -877,6 +901,12 @@ export const UpdateOrderStatusResponse = zod.object({
       quantity: zod.number(),
       size: zod.string(),
       color: zod.string().optional(),
+      imageUrl: zod
+        .string()
+        .nullish()
+        .describe(
+          "Current product photo URL, attached at read time so admin views can render thumbnails. May be null\/missing for products without an uploaded photo.",
+        ),
     }),
   ),
   total: zod.number(),

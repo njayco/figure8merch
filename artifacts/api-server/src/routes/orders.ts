@@ -3,7 +3,11 @@ import { db, ordersTable, cartItemsTable, usersTable, productVariantsTable } fro
 import { eq, desc, sql, and, gt, lte } from "drizzle-orm";
 import { CreateOrderBody, UpdateOrderStatusBody } from "@workspace/api-zod";
 import { requireAuth, requireAdmin, type AuthRequest } from "../middlewares/auth";
-import { getStripeProductSummaries, countActiveStripeProducts } from "../lib/stripeDb";
+import {
+  getStripeProductSummaries,
+  countActiveStripeProducts,
+  getStripeProductImagesByIds,
+} from "../lib/stripeDb";
 import { LOW_STOCK_THRESHOLD } from "../lib/inventory";
 import { getUncachableStripeClient } from "../lib/stripeClient";
 import { sendShippedEmail, sendDeliveredEmail } from "../lib/orderEmails";
@@ -71,13 +75,20 @@ function toOrderShape(order: typeof ordersTable.$inferSelect) {
 function toAdminOrderShape(
   order: typeof ordersTable.$inferSelect,
   user: typeof usersTable.$inferSelect,
+  imageMap?: Map<string, string | null>,
 ) {
+  const items = imageMap
+    ? order.items.map((item) => ({
+        ...item,
+        imageUrl: imageMap.get(item.productId) ?? null,
+      }))
+    : order.items;
   return {
     id: order.id,
     userId: order.userId,
     customerName: user.name,
     customerEmail: user.email,
-    items: order.items,
+    items,
     total: Number(order.total),
     status: order.status,
     shippingAddress: order.shippingAddress,
@@ -88,6 +99,22 @@ function toAdminOrderShape(
     estimatedDeliveryAt: order.estimatedDeliveryAt ?? null,
     createdAt: order.createdAt,
   };
+}
+
+async function buildOrderImageMap(
+  orders: Array<typeof ordersTable.$inferSelect>,
+): Promise<Map<string, string | null>> {
+  const productIds = new Set<string>();
+  for (const o of orders) {
+    for (const item of o.items) {
+      if (item.productId) productIds.add(item.productId);
+    }
+  }
+  // Use the unfiltered images-by-id lookup so historical orders that reference
+  // products that have since been deactivated/archived in Stripe still show
+  // their photo in the admin orders table — admins triaging past orders need
+  // the visual cue regardless of current product status.
+  return getStripeProductImagesByIds([...productIds]);
 }
 
 router.get("/orders", requireAuth, async (req: AuthRequest, res): Promise<void> => {
@@ -186,7 +213,8 @@ router.get("/admin/orders", requireAdmin, async (_req, res): Promise<void> => {
     .innerJoin(usersTable, eq(ordersTable.userId, usersTable.id))
     .orderBy(desc(ordersTable.createdAt));
 
-  res.json(rows.map((r) => toAdminOrderShape(r.order, r.user)));
+  const imageMap = await buildOrderImageMap(rows.map((r) => r.order));
+  res.json(rows.map((r) => toAdminOrderShape(r.order, r.user, imageMap)));
 });
 
 router.patch("/admin/orders/:id", requireAdmin, async (req, res): Promise<void> => {
@@ -374,7 +402,10 @@ router.get("/admin/stats", requireAdmin, async (_req, res): Promise<void> => {
     .orderBy(desc(ordersTable.createdAt))
     .limit(5);
 
-  const recentOrders = recentRows.map((r) => toAdminOrderShape(r.order, r.user));
+  const recentOrders = await (async () => {
+    const imageMap = await buildOrderImageMap(recentRows.map((r) => r.order));
+    return recentRows.map((r) => toAdminOrderShape(r.order, r.user, imageMap));
+  })();
 
   // Fetch actual revenue from Stripe by summing all succeeded payment intents.
   // Paginates through every page so revenue stays accurate beyond 100 transactions;
