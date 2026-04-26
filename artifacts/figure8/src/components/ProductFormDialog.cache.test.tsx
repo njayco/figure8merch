@@ -2,11 +2,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { toast } from "sonner";
 import type { Product } from "@workspace/api-client-react";
 
 const updateMutate = vi.fn();
 const createMutate = vi.fn();
 let nextSavedProduct: Product | null = null;
+let nextError: Error | null = null;
 
 vi.mock("@workspace/api-client-react", async () => {
   return {
@@ -16,6 +18,10 @@ vi.mock("@workspace/api-client-react", async () => {
         opts?: { onSuccess?: (saved: Product) => void; onError?: (err: Error) => void },
       ) => {
         updateMutate(variables, opts);
+        if (nextError && opts?.onError) {
+          opts.onError(nextError);
+          return;
+        }
         if (nextSavedProduct && opts?.onSuccess) {
           opts.onSuccess(nextSavedProduct);
         }
@@ -28,6 +34,10 @@ vi.mock("@workspace/api-client-react", async () => {
         opts?: { onSuccess?: (saved: Product) => void; onError?: (err: Error) => void },
       ) => {
         createMutate(variables, opts);
+        if (nextError && opts?.onError) {
+          opts.onError(nextError);
+          return;
+        }
         if (nextSavedProduct && opts?.onSuccess) {
           opts.onSuccess(nextSavedProduct);
         }
@@ -228,6 +238,9 @@ beforeEach(() => {
   updateMutate.mockReset();
   createMutate.mockReset();
   nextSavedProduct = null;
+  nextError = null;
+  vi.mocked(toast.success).mockClear();
+  vi.mocked(toast.error).mockClear();
 });
 
 describe("ProductFormDialog cache sync after edit", () => {
@@ -747,4 +760,200 @@ describe("ProductFormDialog cache sync after create", () => {
       client.getQueryData<Product[]>(listKey({ search: "linen" })),
     ).toBeUndefined();
   });
+});
+
+describe("ProductFormDialog leaves caches untouched when saving fails", () => {
+  function snapshotCaches(client: QueryClient, keys: SeededCaches) {
+    return {
+      noFilter: client.getQueryData<Product[]>(keys.noFilter),
+      byCategoryTops: client.getQueryData<Product[]>(keys.byCategoryTops),
+      byCategoryBottoms: client.getQueryData<Product[]>(keys.byCategoryBottoms),
+      featured: client.getQueryData<Product[]>(keys.featured),
+      searchLinen: client.getQueryData<Product[]>(keys.searchLinen),
+    };
+  }
+
+  function assertCachesUnchanged(
+    client: QueryClient,
+    keys: SeededCaches,
+    before: ReturnType<typeof snapshotCaches>,
+  ) {
+    // Reference equality: setQueryData was never invoked on any list cache,
+    // so the array references must be identical to the pre-submit snapshot.
+    expect(client.getQueryData<Product[]>(keys.noFilter)).toBe(before.noFilter);
+    expect(client.getQueryData<Product[]>(keys.byCategoryTops)).toBe(
+      before.byCategoryTops,
+    );
+    expect(client.getQueryData<Product[]>(keys.byCategoryBottoms)).toBe(
+      before.byCategoryBottoms,
+    );
+    expect(client.getQueryData<Product[]>(keys.featured)).toBe(before.featured);
+    expect(client.getQueryData<Product[]>(keys.searchLinen)).toBe(
+      before.searchLinen,
+    );
+
+    // Deep equality for an extra layer of confidence — the underlying arrays
+    // must not have been mutated in place either.
+    expect(client.getQueryData<Product[]>(keys.noFilter)).toEqual([
+      baseProduct,
+      otherProduct,
+      bottomsProduct,
+    ]);
+    expect(client.getQueryData<Product[]>(keys.byCategoryTops)).toEqual([
+      baseProduct,
+      otherProduct,
+    ]);
+    expect(client.getQueryData<Product[]>(keys.byCategoryBottoms)).toEqual([
+      bottomsProduct,
+    ]);
+    expect(client.getQueryData<Product[]>(keys.featured)).toEqual([
+      bottomsProduct,
+    ]);
+    expect(client.getQueryData<Product[]>(keys.searchLinen)).toEqual([
+      baseProduct,
+    ]);
+  }
+
+  it("leaves every list, per-product, and admin stats cache untouched when an edit fails, and shows an error toast", async () => {
+    const user = userEvent.setup();
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const keys = seedCaches(client);
+
+    // Prime the admin stats cache as fresh — a successful edit would
+    // invalidate it, so a failed edit must leave it fresh.
+    client.setQueryData(adminStatsKey, { count: 0 });
+    expect(client.getQueryState(adminStatsKey)?.isInvalidated).toBe(false);
+
+    const before = snapshotCaches(client, keys);
+    const beforeProduct = client.getQueryData<Product>(productKey(baseProduct.id));
+    const beforeStats = client.getQueryData<{ count: number }>(adminStatsKey);
+
+    nextError = new Error("Stripe is down");
+
+    renderWith(client);
+    const dialog = await openDialog(user);
+
+    // Make changes that, on success, would have touched every list cache.
+    const nameInput = within(dialog).getByTestId(
+      "input-product-name",
+    ) as HTMLInputElement;
+    await user.clear(nameInput);
+    await user.type(nameInput, "Linen Shirt v2");
+
+    const categoryInput = within(dialog).getByTestId(
+      "input-product-category",
+    ) as HTMLInputElement;
+    await user.clear(categoryInput);
+    await user.type(categoryInput, "bottoms");
+
+    await user.click(within(dialog).getByTestId("checkbox-product-featured"));
+
+    await user.click(within(dialog).getByTestId("button-submit-product"));
+
+    // Mutation was attempted.
+    expect(updateMutate).toHaveBeenCalledTimes(1);
+    expect(createMutate).not.toHaveBeenCalled();
+
+    // Error toast was shown with the server's message; success toast was not.
+    await waitFor(() => {
+      expect(vi.mocked(toast.error)).toHaveBeenCalledTimes(1);
+    });
+    expect(vi.mocked(toast.error)).toHaveBeenCalledWith("Stripe is down");
+    expect(vi.mocked(toast.success)).not.toHaveBeenCalled();
+
+    // Every list cache: same reference and same contents as before.
+    assertCachesUnchanged(client, keys, before);
+
+    // Per-product cache: identical reference to the pre-submit snapshot.
+    expect(client.getQueryData<Product>(productKey(baseProduct.id))).toBe(
+      beforeProduct,
+    );
+    expect(client.getQueryData<Product>(productKey(baseProduct.id))).toEqual(
+      baseProduct,
+    );
+
+    // Admin stats cache: still fresh, never invalidated.
+    expect(client.getQueryData<{ count: number }>(adminStatsKey)).toBe(
+      beforeStats,
+    );
+    expect(client.getQueryState(adminStatsKey)?.isInvalidated).toBe(false);
+  });
+
+  it("leaves every list, per-product, and admin stats cache untouched when a create fails, and shows an error toast", async () => {
+    const user = userEvent.setup();
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const keys = seedCaches(client);
+
+    client.setQueryData(adminStatsKey, { count: 3 });
+    expect(client.getQueryState(adminStatsKey)?.isInvalidated).toBe(false);
+
+    const before = snapshotCaches(client, keys);
+    const beforeBaseProduct = client.getQueryData<Product>(
+      productKey(baseProduct.id),
+    );
+    const beforeStats = client.getQueryData<{ count: number }>(adminStatsKey);
+
+    nextError = new Error("Validation failed");
+
+    renderCreate(client);
+    const dialog = await openCreateDialog(user);
+    await fillCreateForm(user, dialog, {
+      name: "Linen Blazer",
+      description: "A crisp linen blazer.",
+      price: "129.99",
+      category: "tops",
+      sizes: ["M"],
+      colors: ["Sand"],
+      stock: { "M::Sand": "4" },
+      featured: true,
+    });
+
+    await user.click(within(dialog).getByTestId("button-submit-product"));
+
+    expect(createMutate).toHaveBeenCalledTimes(1);
+    expect(updateMutate).not.toHaveBeenCalled();
+
+    await waitFor(() => {
+      expect(vi.mocked(toast.error)).toHaveBeenCalledTimes(1);
+    });
+    expect(vi.mocked(toast.error)).toHaveBeenCalledWith("Validation failed");
+    expect(vi.mocked(toast.success)).not.toHaveBeenCalled();
+
+    // Every list cache: untouched reference and contents.
+    assertCachesUnchanged(client, keys, before);
+
+    // The pre-existing per-product cache for baseProduct must be untouched.
+    expect(client.getQueryData<Product>(productKey(baseProduct.id))).toBe(
+      beforeBaseProduct,
+    );
+
+    // No new per-product cache should have been seeded for the failed create.
+    // We can't predict the would-be id, but we can confirm the only product
+    // cache present in the client is the one we seeded.
+    const productCaches = client
+      .getQueryCache()
+      .getAll()
+      .filter((q) => {
+        const k = q.queryKey;
+        return (
+          Array.isArray(k) &&
+          typeof k[0] === "string" &&
+          k[0].startsWith("/api/products/")
+        );
+      });
+    expect(productCaches.map((q) => q.queryKey[0])).toEqual([
+      `/api/products/${baseProduct.id}`,
+    ]);
+
+    // Admin stats: still fresh, never invalidated.
+    expect(client.getQueryData<{ count: number }>(adminStatsKey)).toBe(
+      beforeStats,
+    );
+    expect(client.getQueryState(adminStatsKey)?.isInvalidated).toBe(false);
+  });
+
 });
