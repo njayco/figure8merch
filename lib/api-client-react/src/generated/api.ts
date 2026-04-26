@@ -21,6 +21,7 @@ import type {
   AdminStats,
   AuthResponse,
   Cart,
+  CartAndSaved,
   CartItemBody,
   CheckoutSessionResponse,
   CompleteOrderBody,
@@ -35,13 +36,17 @@ import type {
   LoginBody,
   LowStockVariant,
   MessageResponse,
+  MoveCartItemToSavedParams,
+  MoveSavedItemToCartParams,
   Order,
   PriceHistoryEntry,
   Product,
   ProductVariant,
   RegisterBody,
   RemoveFromCartParams,
+  RemoveSavedItemParams,
   RestockVariantBody,
+  SavedCart,
   UpdateCartItemBody,
   UpdateCartItemParams,
   UpdateOrderStatusBody,
@@ -1771,6 +1776,396 @@ export const useRemoveFromWishlist = <
   TContext
 > => {
   return useMutation(getRemoveFromWishlistMutationOptions(options));
+};
+
+/**
+ * @summary Get current user's saved-for-later items
+ */
+export const getGetSavedCartUrl = () => {
+  return `/api/saved-cart`;
+};
+
+export const getSavedCart = async (
+  options?: RequestInit,
+): Promise<SavedCart> => {
+  return customFetch<SavedCart>(getGetSavedCartUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSavedCartQueryKey = () => {
+  return [`/api/saved-cart`] as const;
+};
+
+export const getGetSavedCartQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSavedCart>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSavedCart>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetSavedCartQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getSavedCart>>> = ({
+    signal,
+  }) => getSavedCart({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSavedCart>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSavedCartQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSavedCart>>
+>;
+export type GetSavedCartQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get current user's saved-for-later items
+ */
+
+export function useGetSavedCart<
+  TData = Awaited<ReturnType<typeof getSavedCart>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSavedCart>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSavedCartQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Move a cart line into the saved-for-later list
+ */
+export const getMoveCartItemToSavedUrl = (
+  productId: string,
+  size: string,
+  params?: MoveCartItemToSavedParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/cart/${productId}/${size}/save-for-later?${stringifiedParams}`
+    : `/api/cart/${productId}/${size}/save-for-later`;
+};
+
+export const moveCartItemToSaved = async (
+  productId: string,
+  size: string,
+  params?: MoveCartItemToSavedParams,
+  options?: RequestInit,
+): Promise<CartAndSaved> => {
+  return customFetch<CartAndSaved>(
+    getMoveCartItemToSavedUrl(productId, size, params),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getMoveCartItemToSavedMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof moveCartItemToSaved>>,
+    TError,
+    { productId: string; size: string; params?: MoveCartItemToSavedParams },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof moveCartItemToSaved>>,
+  TError,
+  { productId: string; size: string; params?: MoveCartItemToSavedParams },
+  TContext
+> => {
+  const mutationKey = ["moveCartItemToSaved"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof moveCartItemToSaved>>,
+    { productId: string; size: string; params?: MoveCartItemToSavedParams }
+  > = (props) => {
+    const { productId, size, params } = props ?? {};
+
+    return moveCartItemToSaved(productId, size, params, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MoveCartItemToSavedMutationResult = NonNullable<
+  Awaited<ReturnType<typeof moveCartItemToSaved>>
+>;
+
+export type MoveCartItemToSavedMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Move a cart line into the saved-for-later list
+ */
+export const useMoveCartItemToSaved = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof moveCartItemToSaved>>,
+    TError,
+    { productId: string; size: string; params?: MoveCartItemToSavedParams },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof moveCartItemToSaved>>,
+  TError,
+  { productId: string; size: string; params?: MoveCartItemToSavedParams },
+  TContext
+> => {
+  return useMutation(getMoveCartItemToSavedMutationOptions(options));
+};
+
+/**
+ * @summary Move a saved-for-later line back into the active cart
+ */
+export const getMoveSavedItemToCartUrl = (
+  productId: string,
+  size: string,
+  params?: MoveSavedItemToCartParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/saved-cart/${productId}/${size}/move-to-cart?${stringifiedParams}`
+    : `/api/saved-cart/${productId}/${size}/move-to-cart`;
+};
+
+export const moveSavedItemToCart = async (
+  productId: string,
+  size: string,
+  params?: MoveSavedItemToCartParams,
+  options?: RequestInit,
+): Promise<CartAndSaved> => {
+  return customFetch<CartAndSaved>(
+    getMoveSavedItemToCartUrl(productId, size, params),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getMoveSavedItemToCartMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof moveSavedItemToCart>>,
+    TError,
+    { productId: string; size: string; params?: MoveSavedItemToCartParams },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof moveSavedItemToCart>>,
+  TError,
+  { productId: string; size: string; params?: MoveSavedItemToCartParams },
+  TContext
+> => {
+  const mutationKey = ["moveSavedItemToCart"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof moveSavedItemToCart>>,
+    { productId: string; size: string; params?: MoveSavedItemToCartParams }
+  > = (props) => {
+    const { productId, size, params } = props ?? {};
+
+    return moveSavedItemToCart(productId, size, params, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MoveSavedItemToCartMutationResult = NonNullable<
+  Awaited<ReturnType<typeof moveSavedItemToCart>>
+>;
+
+export type MoveSavedItemToCartMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Move a saved-for-later line back into the active cart
+ */
+export const useMoveSavedItemToCart = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof moveSavedItemToCart>>,
+    TError,
+    { productId: string; size: string; params?: MoveSavedItemToCartParams },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof moveSavedItemToCart>>,
+  TError,
+  { productId: string; size: string; params?: MoveSavedItemToCartParams },
+  TContext
+> => {
+  return useMutation(getMoveSavedItemToCartMutationOptions(options));
+};
+
+/**
+ * @summary Remove an item from the saved-for-later list
+ */
+export const getRemoveSavedItemUrl = (
+  productId: string,
+  size: string,
+  params?: RemoveSavedItemParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/saved-cart/${productId}/${size}?${stringifiedParams}`
+    : `/api/saved-cart/${productId}/${size}`;
+};
+
+export const removeSavedItem = async (
+  productId: string,
+  size: string,
+  params?: RemoveSavedItemParams,
+  options?: RequestInit,
+): Promise<SavedCart> => {
+  return customFetch<SavedCart>(
+    getRemoveSavedItemUrl(productId, size, params),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getRemoveSavedItemMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeSavedItem>>,
+    TError,
+    { productId: string; size: string; params?: RemoveSavedItemParams },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof removeSavedItem>>,
+  TError,
+  { productId: string; size: string; params?: RemoveSavedItemParams },
+  TContext
+> => {
+  const mutationKey = ["removeSavedItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof removeSavedItem>>,
+    { productId: string; size: string; params?: RemoveSavedItemParams }
+  > = (props) => {
+    const { productId, size, params } = props ?? {};
+
+    return removeSavedItem(productId, size, params, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RemoveSavedItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof removeSavedItem>>
+>;
+
+export type RemoveSavedItemMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Remove an item from the saved-for-later list
+ */
+export const useRemoveSavedItem = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeSavedItem>>,
+    TError,
+    { productId: string; size: string; params?: RemoveSavedItemParams },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof removeSavedItem>>,
+  TError,
+  { productId: string; size: string; params?: RemoveSavedItemParams },
+  TContext
+> => {
+  return useMutation(getRemoveSavedItemMutationOptions(options));
 };
 
 /**

@@ -25,18 +25,40 @@ vi.mock("wouter", () => ({
 // exactly the call(s) it triggered.
 const updateMutate = vi.fn();
 const removeMutate = vi.fn();
+const moveToSavedMutate = vi.fn();
+const moveToCartMutate = vi.fn();
+const removeSavedMutate = vi.fn();
 let mockCart:
   | { items: Array<Record<string, unknown>>; total: number }
   | undefined;
+let mockSaved: { items: Array<Record<string, unknown>> } | undefined;
 let mockCartLoading = false;
+let mockSavedLoading = false;
 let updateIsPending = false;
 let removeIsPending = false;
+let moveToSavedIsPending = false;
+let moveToCartIsPending = false;
+let removeSavedIsPending = false;
 
 vi.mock("@workspace/api-client-react", () => ({
   useGetCart: () => ({ data: mockCart, isLoading: mockCartLoading }),
   getGetCartQueryKey: () => ["/api/cart"],
   useUpdateCartItem: () => ({ mutate: updateMutate, isPending: updateIsPending }),
   useRemoveFromCart: () => ({ mutate: removeMutate, isPending: removeIsPending }),
+  useGetSavedCart: () => ({ data: mockSaved, isLoading: mockSavedLoading }),
+  getGetSavedCartQueryKey: () => ["/api/saved-cart"],
+  useMoveCartItemToSaved: () => ({
+    mutate: moveToSavedMutate,
+    isPending: moveToSavedIsPending,
+  }),
+  useMoveSavedItemToCart: () => ({
+    mutate: moveToCartMutate,
+    isPending: moveToCartIsPending,
+  }),
+  useRemoveSavedItem: () => ({
+    mutate: removeSavedMutate,
+    isPending: removeSavedIsPending,
+  }),
 }));
 
 let mockUser: { email: string; name: string } | null = {
@@ -90,12 +112,20 @@ function renderCart() {
 
 beforeEach(() => {
   mockCart = sampleCart;
+  mockSaved = { items: [] };
   mockCartLoading = false;
+  mockSavedLoading = false;
   updateIsPending = false;
   removeIsPending = false;
+  moveToSavedIsPending = false;
+  moveToCartIsPending = false;
+  removeSavedIsPending = false;
   mockUser = { email: "alex@example.com", name: "Alex Doe" };
   updateMutate.mockReset();
   removeMutate.mockReset();
+  moveToSavedMutate.mockReset();
+  moveToCartMutate.mockReset();
+  removeSavedMutate.mockReset();
   toastMock.mockReset();
 });
 
@@ -460,5 +490,139 @@ describe("Cart error toasts", () => {
         description: "Unable to remove item from cart",
       }),
     );
+  });
+});
+
+describe("Cart Save for Later action", () => {
+  it("calls useMoveCartItemToSaved with product / size / color when Save for Later is clicked", async () => {
+    const user = userEvent.setup();
+    renderCart();
+
+    const row = screen.getByTestId("cart-item-prod_1-M-Black");
+    await user.click(within(row).getByRole("button", { name: /Save for Later/i }));
+
+    expect(moveToSavedMutate).toHaveBeenCalledTimes(1);
+    const [variables] = moveToSavedMutate.mock.calls[0];
+    expect(variables).toEqual({
+      productId: "prod_1",
+      size: "M",
+      params: { color: "Black" },
+    });
+  });
+
+  it("omits the color params when saving a line that has no color", async () => {
+    const user = userEvent.setup();
+    renderCart();
+
+    const row = screen.getByTestId("cart-item-prod_2-L-");
+    await user.click(within(row).getByRole("button", { name: /Save for Later/i }));
+
+    expect(moveToSavedMutate).toHaveBeenCalledTimes(1);
+    const [variables] = moveToSavedMutate.mock.calls[0];
+    expect(variables).toEqual({
+      productId: "prod_2",
+      size: "L",
+      params: undefined,
+    });
+  });
+
+  it("disables every Save for Later button while a save is in flight", () => {
+    moveToSavedIsPending = true;
+    renderCart();
+    for (const button of screen.getAllByRole("button", { name: /Save for Later/i })) {
+      expect(button).toBeDisabled();
+    }
+  });
+});
+
+describe("Saved-for-later section", () => {
+  const savedItems = {
+    items: [
+      {
+        product: { id: "prod_3", name: "Wool Coat", price: 199, imageUrl: "" },
+        size: "S",
+        color: "Cream",
+        quantity: 1,
+      },
+    ],
+  };
+
+  it("does not render the Saved for Later section when there are no saved items", () => {
+    mockSaved = { items: [] };
+    renderCart();
+    expect(
+      screen.queryByTestId("saved-for-later-section"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders saved items beneath the cart with name, size, color and price", () => {
+    mockSaved = savedItems;
+    renderCart();
+
+    const section = screen.getByTestId("saved-for-later-section");
+    expect(within(section).getByText(/Saved for Later/i)).toBeInTheDocument();
+
+    const row = screen.getByTestId("saved-item-prod_3-S-Cream");
+    expect(within(row).getByText("Wool Coat")).toBeInTheDocument();
+    expect(within(row).getByText(/Size: S/i)).toBeInTheDocument();
+    expect(within(row).getByText(/Color: Cream/i)).toBeInTheDocument();
+    expect(within(row).getByText("$199.00")).toBeInTheDocument();
+  });
+
+  it("calls useMoveSavedItemToCart with the line's product / size / color when Move to Cart is clicked", async () => {
+    const user = userEvent.setup();
+    mockSaved = savedItems;
+    renderCart();
+
+    const row = screen.getByTestId("saved-item-prod_3-S-Cream");
+    await user.click(within(row).getByRole("button", { name: /Move to Cart/i }));
+
+    expect(moveToCartMutate).toHaveBeenCalledTimes(1);
+    const [variables] = moveToCartMutate.mock.calls[0];
+    expect(variables).toEqual({
+      productId: "prod_3",
+      size: "S",
+      params: { color: "Cream" },
+    });
+  });
+
+  it("calls useRemoveSavedItem when the Remove button is clicked on a saved row", async () => {
+    const user = userEvent.setup();
+    mockSaved = savedItems;
+    renderCart();
+
+    const row = screen.getByTestId("saved-item-prod_3-S-Cream");
+    await user.click(within(row).getByRole("button", { name: /Remove from saved/i }));
+
+    expect(removeSavedMutate).toHaveBeenCalledTimes(1);
+    const [variables] = removeSavedMutate.mock.calls[0];
+    expect(variables).toEqual({
+      productId: "prod_3",
+      size: "S",
+      params: { color: "Cream" },
+    });
+  });
+
+  it("still shows the Saved for Later section when the active cart is empty but saved items exist", () => {
+    mockCart = { items: [], total: 0 };
+    mockSaved = savedItems;
+    renderCart();
+
+    expect(screen.getByText(/Your cart is empty/i)).toBeInTheDocument();
+    expect(screen.getByTestId("saved-for-later-section")).toBeInTheDocument();
+    expect(screen.getByTestId("saved-item-prod_3-S-Cream")).toBeInTheDocument();
+  });
+
+  it("treats both empty cart and empty saved list as the global empty-cart state", () => {
+    mockCart = { items: [], total: 0 };
+    mockSaved = { items: [] };
+    renderCart();
+
+    expect(
+      screen.getByRole("heading", { name: /Your Cart is Empty/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByTestId("saved-for-later-section"),
+    ).not.toBeInTheDocument();
   });
 });

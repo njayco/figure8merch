@@ -168,6 +168,22 @@ export interface UpdateCartItemBody {
   quantity: number;
 }
 
+export interface SavedCartItem {
+  product: Product;
+  quantity: number;
+  size: string;
+  color: string;
+}
+
+export interface SavedCart {
+  items: SavedCartItem[];
+}
+
+export interface CartAndSaved {
+  cart: Cart;
+  saved: SavedCart;
+}
+
 export interface OrderItem {
   /** Stripe product ID (prod_...) */
   productId: string;
@@ -347,5 +363,17 @@ export type UpdateCartItemParams = {
 };
 
 export type RemoveFromCartParams = {
+  color?: string;
+};
+
+export type MoveCartItemToSavedParams = {
+  color?: string;
+};
+
+export type MoveSavedItemToCartParams = {
+  color?: string;
+};
+
+export type RemoveSavedItemParams = {
   color?: string;
 };

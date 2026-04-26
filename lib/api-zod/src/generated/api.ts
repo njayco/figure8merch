@@ -638,6 +638,297 @@ export const RemoveFromWishlistResponse = zod.object({
 });
 
 /**
+ * @summary Get current user's saved-for-later items
+ */
+export const GetSavedCartResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      product: zod.object({
+        id: zod.string().describe("Stripe product ID (prod_...)"),
+        name: zod.string(),
+        description: zod.string(),
+        price: zod.number(),
+        imageUrl: zod.string(),
+        category: zod.string(),
+        sizes: zod.array(zod.string()),
+        colors: zod.array(zod.string()),
+        variants: zod
+          .array(
+            zod.object({
+              size: zod.string(),
+              color: zod.string(),
+              stock: zod.number(),
+            }),
+          )
+          .describe(
+            "Per (size, color) inventory rows. Empty when product has no variants configured (then stock is unlimited).",
+          ),
+        totalStock: zod
+          .number()
+          .nullish()
+          .describe(
+            "Sum of stock across all variants. Null when no variants are configured.",
+          ),
+        isFeatured: zod.boolean(),
+        createdAt: zod.coerce.date(),
+        stripePriceId: zod.string().describe("Stripe price ID (price_...)"),
+      }),
+      quantity: zod.number(),
+      size: zod.string(),
+      color: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary Move a cart line into the saved-for-later list
+ */
+export const MoveCartItemToSavedParams = zod.object({
+  productId: zod.coerce.string(),
+  size: zod.coerce.string(),
+});
+
+export const moveCartItemToSavedQueryColorDefault = ``;
+
+export const MoveCartItemToSavedQueryParams = zod.object({
+  color: zod.coerce.string().default(moveCartItemToSavedQueryColorDefault),
+});
+
+export const MoveCartItemToSavedResponse = zod.object({
+  cart: zod.object({
+    items: zod.array(
+      zod.object({
+        product: zod.object({
+          id: zod.string().describe("Stripe product ID (prod_...)"),
+          name: zod.string(),
+          description: zod.string(),
+          price: zod.number(),
+          imageUrl: zod.string(),
+          category: zod.string(),
+          sizes: zod.array(zod.string()),
+          colors: zod.array(zod.string()),
+          variants: zod
+            .array(
+              zod.object({
+                size: zod.string(),
+                color: zod.string(),
+                stock: zod.number(),
+              }),
+            )
+            .describe(
+              "Per (size, color) inventory rows. Empty when product has no variants configured (then stock is unlimited).",
+            ),
+          totalStock: zod
+            .number()
+            .nullish()
+            .describe(
+              "Sum of stock across all variants. Null when no variants are configured.",
+            ),
+          isFeatured: zod.boolean(),
+          createdAt: zod.coerce.date(),
+          stripePriceId: zod.string().describe("Stripe price ID (price_...)"),
+        }),
+        quantity: zod.number(),
+        size: zod.string(),
+        color: zod.string(),
+      }),
+    ),
+    total: zod.number(),
+    itemCount: zod.number(),
+  }),
+  saved: zod.object({
+    items: zod.array(
+      zod.object({
+        product: zod.object({
+          id: zod.string().describe("Stripe product ID (prod_...)"),
+          name: zod.string(),
+          description: zod.string(),
+          price: zod.number(),
+          imageUrl: zod.string(),
+          category: zod.string(),
+          sizes: zod.array(zod.string()),
+          colors: zod.array(zod.string()),
+          variants: zod
+            .array(
+              zod.object({
+                size: zod.string(),
+                color: zod.string(),
+                stock: zod.number(),
+              }),
+            )
+            .describe(
+              "Per (size, color) inventory rows. Empty when product has no variants configured (then stock is unlimited).",
+            ),
+          totalStock: zod
+            .number()
+            .nullish()
+            .describe(
+              "Sum of stock across all variants. Null when no variants are configured.",
+            ),
+          isFeatured: zod.boolean(),
+          createdAt: zod.coerce.date(),
+          stripePriceId: zod.string().describe("Stripe price ID (price_...)"),
+        }),
+        quantity: zod.number(),
+        size: zod.string(),
+        color: zod.string(),
+      }),
+    ),
+  }),
+});
+
+/**
+ * @summary Move a saved-for-later line back into the active cart
+ */
+export const MoveSavedItemToCartParams = zod.object({
+  productId: zod.coerce.string(),
+  size: zod.coerce.string(),
+});
+
+export const moveSavedItemToCartQueryColorDefault = ``;
+
+export const MoveSavedItemToCartQueryParams = zod.object({
+  color: zod.coerce.string().default(moveSavedItemToCartQueryColorDefault),
+});
+
+export const MoveSavedItemToCartResponse = zod.object({
+  cart: zod.object({
+    items: zod.array(
+      zod.object({
+        product: zod.object({
+          id: zod.string().describe("Stripe product ID (prod_...)"),
+          name: zod.string(),
+          description: zod.string(),
+          price: zod.number(),
+          imageUrl: zod.string(),
+          category: zod.string(),
+          sizes: zod.array(zod.string()),
+          colors: zod.array(zod.string()),
+          variants: zod
+            .array(
+              zod.object({
+                size: zod.string(),
+                color: zod.string(),
+                stock: zod.number(),
+              }),
+            )
+            .describe(
+              "Per (size, color) inventory rows. Empty when product has no variants configured (then stock is unlimited).",
+            ),
+          totalStock: zod
+            .number()
+            .nullish()
+            .describe(
+              "Sum of stock across all variants. Null when no variants are configured.",
+            ),
+          isFeatured: zod.boolean(),
+          createdAt: zod.coerce.date(),
+          stripePriceId: zod.string().describe("Stripe price ID (price_...)"),
+        }),
+        quantity: zod.number(),
+        size: zod.string(),
+        color: zod.string(),
+      }),
+    ),
+    total: zod.number(),
+    itemCount: zod.number(),
+  }),
+  saved: zod.object({
+    items: zod.array(
+      zod.object({
+        product: zod.object({
+          id: zod.string().describe("Stripe product ID (prod_...)"),
+          name: zod.string(),
+          description: zod.string(),
+          price: zod.number(),
+          imageUrl: zod.string(),
+          category: zod.string(),
+          sizes: zod.array(zod.string()),
+          colors: zod.array(zod.string()),
+          variants: zod
+            .array(
+              zod.object({
+                size: zod.string(),
+                color: zod.string(),
+                stock: zod.number(),
+              }),
+            )
+            .describe(
+              "Per (size, color) inventory rows. Empty when product has no variants configured (then stock is unlimited).",
+            ),
+          totalStock: zod
+            .number()
+            .nullish()
+            .describe(
+              "Sum of stock across all variants. Null when no variants are configured.",
+            ),
+          isFeatured: zod.boolean(),
+          createdAt: zod.coerce.date(),
+          stripePriceId: zod.string().describe("Stripe price ID (price_...)"),
+        }),
+        quantity: zod.number(),
+        size: zod.string(),
+        color: zod.string(),
+      }),
+    ),
+  }),
+});
+
+/**
+ * @summary Remove an item from the saved-for-later list
+ */
+export const RemoveSavedItemParams = zod.object({
+  productId: zod.coerce.string(),
+  size: zod.coerce.string(),
+});
+
+export const removeSavedItemQueryColorDefault = ``;
+
+export const RemoveSavedItemQueryParams = zod.object({
+  color: zod.coerce.string().default(removeSavedItemQueryColorDefault),
+});
+
+export const RemoveSavedItemResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      product: zod.object({
+        id: zod.string().describe("Stripe product ID (prod_...)"),
+        name: zod.string(),
+        description: zod.string(),
+        price: zod.number(),
+        imageUrl: zod.string(),
+        category: zod.string(),
+        sizes: zod.array(zod.string()),
+        colors: zod.array(zod.string()),
+        variants: zod
+          .array(
+            zod.object({
+              size: zod.string(),
+              color: zod.string(),
+              stock: zod.number(),
+            }),
+          )
+          .describe(
+            "Per (size, color) inventory rows. Empty when product has no variants configured (then stock is unlimited).",
+          ),
+        totalStock: zod
+          .number()
+          .nullish()
+          .describe(
+            "Sum of stock across all variants. Null when no variants are configured.",
+          ),
+        isFeatured: zod.boolean(),
+        createdAt: zod.coerce.date(),
+        stripePriceId: zod.string().describe("Stripe price ID (price_...)"),
+      }),
+      quantity: zod.number(),
+      size: zod.string(),
+      color: zod.string(),
+    }),
+  ),
+});
+
+/**
  * @summary List current user's orders
  */
 export const ListOrdersResponseItem = zod.object({
