@@ -1,5 +1,5 @@
-import { useGetAdminStats, useListAdminOrders, useListProducts, useListCustomers, useUpdateOrderStatus, useHealthCheck, getListAdminOrdersQueryKey, getGetAdminStatsQueryKey, getHealthCheckQueryKey, ApiError } from "@workspace/api-client-react";
-import type { Product, ProductVariant, AdminOrder, UpdateOrderStatusBodyStatus, HealthStatus } from "@workspace/api-client-react";
+import { useGetAdminStats, useListAdminOrders, useListProducts, useListCustomers, useUpdateOrderStatus, useHealthCheck, useListLowStockInventory, useRestockVariant, getListAdminOrdersQueryKey, getGetAdminStatsQueryKey, getHealthCheckQueryKey, getListLowStockInventoryQueryKey, ApiError } from "@workspace/api-client-react";
+import type { Product, ProductVariant, AdminOrder, UpdateOrderStatusBodyStatus, HealthStatus, LowStockVariant } from "@workspace/api-client-react";
 import { useState } from "react";
 import { NewProductDialog } from "@/components/NewProductDialog";
 import { ProductImage } from "@/components/ProductImage";
@@ -13,10 +13,12 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Users, ShoppingBag, DollarSign, Package, ExternalLink, Info, AlertTriangle, TrendingUp, Pencil } from "lucide-react";
+import { Users, ShoppingBag, DollarSign, Package, ExternalLink, Info, AlertTriangle, TrendingUp, Pencil, PackageOpen, PackageX, Plus } from "lucide-react";
 import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+
+const RESTOCK_AMOUNT = 10;
 
 const ORDER_STATUS_OPTIONS: Array<{ value: UpdateOrderStatusBodyStatus; label: string }> = [
   { value: "pending", label: "Pending" },
@@ -272,11 +274,80 @@ function OrderStatusControl({ order }: { order: AdminOrder }) {
   );
 }
 
+function InventoryRow({ item }: { item: LowStockVariant }) {
+  const queryClient = useQueryClient();
+  const { mutate, isPending } = useRestockVariant({
+    mutation: {
+      onSuccess: (updated) => {
+        queryClient.invalidateQueries({ queryKey: getListLowStockInventoryQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetAdminStatsQueryKey() });
+        toast.success(
+          `Restocked ${updated.productName} (${updated.size}/${updated.color}) — now ${updated.stock} in stock`,
+        );
+      },
+      onError: (err) => {
+        toast.error(err instanceof Error ? err.message : "Failed to restock variant");
+      },
+    },
+  });
+
+  const isOut = item.status === "out";
+
+  return (
+    <TableRow data-testid={`row-inventory-${item.id}`}>
+      <TableCell>
+        <div className="flex items-center gap-3">
+          {item.productImageUrl ? (
+            <img
+              src={item.productImageUrl}
+              alt={item.productName}
+              className="h-10 w-8 object-cover bg-muted shrink-0"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = "none";
+              }}
+            />
+          ) : (
+            <div className="h-10 w-8 bg-muted shrink-0" aria-hidden />
+          )}
+          <span className="font-medium">{item.productName}</span>
+        </div>
+      </TableCell>
+      <TableCell>{item.size}</TableCell>
+      <TableCell>{item.color}</TableCell>
+      <TableCell>
+        <span
+          className={`px-2 py-1 text-xs rounded-full ${
+            isOut ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-800"
+          }`}
+        >
+          {isOut ? "Sold out" : "Low stock"}
+        </span>
+      </TableCell>
+      <TableCell className="text-right font-mono">{item.stock}</TableCell>
+      <TableCell className="text-right">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="rounded-none uppercase tracking-widest text-xs"
+          disabled={isPending}
+          onClick={() => mutate({ id: item.id, data: { amount: RESTOCK_AMOUNT } })}
+          data-testid={`button-restock-${item.id}`}
+        >
+          <Plus className="h-3.5 w-3.5 mr-1" />
+          {isPending ? "Adding…" : `+${RESTOCK_AMOUNT} stock`}
+        </Button>
+      </TableCell>
+    </TableRow>
+  );
+}
+
 export function Admin() {
   const { data: stats, isLoading: statsLoading } = useGetAdminStats();
   const { data: orders, isLoading: ordersLoading } = useListAdminOrders();
   const { data: products, isLoading: productsLoading } = useListProducts();
   const { data: customers, isLoading: customersLoading } = useListCustomers();
+  const { data: inventory, isLoading: inventoryLoading } = useListLowStockInventory();
   const { data: health, error: healthError } = useHealthCheck({
     query: {
       retry: false,
@@ -296,13 +367,17 @@ export function Admin() {
   const stripeFailed = healthBody?.stripe?.status === "failed";
   const stripeError = healthBody?.stripe?.error;
 
-  if (statsLoading || ordersLoading || productsLoading || customersLoading) {
+  if (statsLoading || ordersLoading || productsLoading || customersLoading || inventoryLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/10">
         <Spinner className="h-8 w-8 text-primary" />
       </div>
     );
   }
+
+  const lowStockThreshold = stats?.lowStockThreshold ?? 3;
+  const lowStockCount = stats?.lowStockCount ?? 0;
+  const outOfStockCount = stats?.outOfStockCount ?? 0;
 
   return (
     <div className="min-h-screen bg-muted/10 pb-20">
@@ -328,7 +403,7 @@ export function Admin() {
             </AlertDescription>
           </Alert>
         )}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
           <Card className="rounded-none border-border shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium uppercase tracking-wider">Stripe Revenue</CardTitle>
@@ -364,6 +439,48 @@ export function Admin() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats?.totalProducts}</div>
+            </CardContent>
+          </Card>
+          <Card
+            className={`rounded-none border-border shadow-sm ${
+              lowStockCount > 0 ? "border-amber-300 bg-amber-50/50" : ""
+            }`}
+            data-testid="card-low-stock"
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium uppercase tracking-wider">Low Stock Variants</CardTitle>
+              <PackageOpen
+                className={`h-4 w-4 ${lowStockCount > 0 ? "text-amber-600" : "text-muted-foreground"}`}
+              />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold" data-testid="text-low-stock-count">
+                {lowStockCount}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {lowStockCount > 0 ? `Stock at or below ${lowStockThreshold}` : "All variants well stocked"}
+              </p>
+            </CardContent>
+          </Card>
+          <Card
+            className={`rounded-none border-border shadow-sm ${
+              outOfStockCount > 0 ? "border-red-300 bg-red-50/50" : ""
+            }`}
+            data-testid="card-out-of-stock"
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium uppercase tracking-wider">Sold-Out Variants</CardTitle>
+              <PackageX
+                className={`h-4 w-4 ${outOfStockCount > 0 ? "text-red-600" : "text-muted-foreground"}`}
+              />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold" data-testid="text-out-of-stock-count">
+                {outOfStockCount}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {outOfStockCount > 0 ? "Need restocking now" : "Nothing fully sold out"}
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -408,6 +525,25 @@ export function Admin() {
           <TabsList className="w-full justify-start rounded-none border-b border-border h-auto p-0 bg-transparent mb-8">
             <TabsTrigger value="orders" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none py-3 px-6 uppercase tracking-wider text-sm font-medium">Orders</TabsTrigger>
             <TabsTrigger value="products" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none py-3 px-6 uppercase tracking-wider text-sm font-medium">Products</TabsTrigger>
+            <TabsTrigger
+              value="inventory"
+              className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none py-3 px-6 uppercase tracking-wider text-sm font-medium"
+              data-testid="tab-inventory"
+            >
+              Inventory
+              {(lowStockCount > 0 || outOfStockCount > 0) && (
+                <span
+                  className={`ml-2 px-1.5 py-0.5 text-[10px] rounded-full ${
+                    outOfStockCount > 0
+                      ? "bg-red-100 text-red-800"
+                      : "bg-amber-100 text-amber-800"
+                  }`}
+                  data-testid="badge-inventory-count"
+                >
+                  {lowStockCount + outOfStockCount}
+                </span>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="customers" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none py-3 px-6 uppercase tracking-wider text-sm font-medium">Customers</TabsTrigger>
           </TabsList>
 
@@ -601,6 +737,57 @@ export function Admin() {
                   {(!products || products.length === 0) && (
                     <TableRow>
                       <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">No products found.</TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="inventory">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-serif font-bold">
+                Inventory ({inventory?.length ?? 0})
+              </h2>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                Showing variants with stock at or below {lowStockThreshold}
+              </p>
+            </div>
+            <Alert className="rounded-none mb-4 bg-muted/30">
+              <Info className="h-4 w-4" />
+              <AlertTitle>How this list works</AlertTitle>
+              <AlertDescription>
+                Sold-out variants appear first, followed by low-stock variants
+                (1–{lowStockThreshold} units left). Use the +{RESTOCK_AMOUNT} stock
+                button to add inventory; the row will drop off the list once it goes back above
+                the threshold.
+              </AlertDescription>
+            </Alert>
+            <div className="bg-background border border-border">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50 hover:bg-muted/50">
+                    <TableHead className="uppercase tracking-wider font-bold">Product</TableHead>
+                    <TableHead className="uppercase tracking-wider font-bold">Size</TableHead>
+                    <TableHead className="uppercase tracking-wider font-bold">Color</TableHead>
+                    <TableHead className="uppercase tracking-wider font-bold">Status</TableHead>
+                    <TableHead className="uppercase tracking-wider font-bold text-right">Stock</TableHead>
+                    <TableHead className="uppercase tracking-wider font-bold text-right">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {inventory?.map((item) => (
+                    <InventoryRow key={item.id} item={item} />
+                  ))}
+                  {(!inventory || inventory.length === 0) && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={6}
+                        className="text-center py-8 text-muted-foreground"
+                        data-testid="text-inventory-empty"
+                      >
+                        Everything is well stocked. No variants at or below {lowStockThreshold} units.
+                      </TableCell>
                     </TableRow>
                   )}
                 </TableBody>

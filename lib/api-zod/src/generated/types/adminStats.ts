@@ -15,6 +15,12 @@ export interface AdminStats {
   totalOrders: number;
   totalCustomers: number;
   totalProducts: number;
+  /** Number of variants with stock between 1 and the low-stock threshold (inclusive) */
+  lowStockCount: number;
+  /** Number of variants with stock equal to 0 */
+  outOfStockCount: number;
+  /** Stock level at or below which a variant is considered low stock (e.g. 3) */
+  lowStockThreshold: number;
   recentOrders: AdminOrder[];
   topProducts: AdminStatsTopProductsItem[];
 }

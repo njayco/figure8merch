@@ -1,9 +1,10 @@
 import { Router, type IRouter } from "express";
-import { db, ordersTable, cartItemsTable, usersTable } from "@workspace/db";
-import { eq, desc, sql } from "drizzle-orm";
+import { db, ordersTable, cartItemsTable, usersTable, productVariantsTable } from "@workspace/db";
+import { eq, desc, sql, and, gt, lte } from "drizzle-orm";
 import { CreateOrderBody, UpdateOrderStatusBody } from "@workspace/api-zod";
 import { requireAuth, requireAdmin, type AuthRequest } from "../middlewares/auth";
 import { getStripeProductSummaries, countActiveStripeProducts } from "../lib/stripeDb";
+import { LOW_STOCK_THRESHOLD } from "../lib/inventory";
 import { getUncachableStripeClient } from "../lib/stripeClient";
 import { sendShippedEmail, sendDeliveredEmail } from "../lib/orderEmails";
 
@@ -323,6 +324,21 @@ router.get("/admin/stats", requireAdmin, async (_req, res): Promise<void> => {
   const [totalCustomers] = await db.select({ count: sql<number>`COUNT(*)` }).from(usersTable);
   const totalProducts = await countActiveStripeProducts();
 
+  // Inventory health: count variants that are running low (1..threshold) or already out
+  const [lowStockRow] = await db
+    .select({ count: sql<number>`COUNT(*)` })
+    .from(productVariantsTable)
+    .where(
+      and(
+        gt(productVariantsTable.stock, 0),
+        lte(productVariantsTable.stock, LOW_STOCK_THRESHOLD),
+      ),
+    );
+  const [outOfStockRow] = await db
+    .select({ count: sql<number>`COUNT(*)` })
+    .from(productVariantsTable)
+    .where(eq(productVariantsTable.stock, 0));
+
   // Top 5 products by total units sold, computed by expanding the order items JSONB array.
   // Revenue is summed as price * quantity per line item.
   const topProductsRows = await db.execute<{
@@ -376,6 +392,9 @@ router.get("/admin/stats", requireAdmin, async (_req, res): Promise<void> => {
     totalOrders: Number(totalOrders?.count ?? 0),
     totalCustomers: Number(totalCustomers?.count ?? 0),
     totalProducts,
+    lowStockCount: Number(lowStockRow?.count ?? 0),
+    outOfStockCount: Number(outOfStockRow?.count ?? 0),
+    lowStockThreshold: LOW_STOCK_THRESHOLD,
     recentOrders,
     topProducts,
   });

@@ -717,6 +717,19 @@ export const GetAdminStatsResponse = zod.object({
   totalOrders: zod.number(),
   totalCustomers: zod.number(),
   totalProducts: zod.number(),
+  lowStockCount: zod
+    .number()
+    .describe(
+      "Number of variants with stock between 1 and the low-stock threshold (inclusive)",
+    ),
+  outOfStockCount: zod
+    .number()
+    .describe("Number of variants with stock equal to 0"),
+  lowStockThreshold: zod
+    .number()
+    .describe(
+      "Stock level at or below which a variant is considered low stock (e.g. 3)",
+    ),
   recentOrders: zod.array(
     zod.object({
       id: zod.number(),
@@ -873,3 +886,56 @@ export const ListCustomersResponseItem = zod.object({
   createdAt: zod.coerce.date(),
 });
 export const ListCustomersResponse = zod.array(ListCustomersResponseItem);
+
+/**
+ * @summary List low-stock and sold-out variants across all products (admin)
+ */
+export const ListLowStockInventoryResponseItem = zod.object({
+  id: zod.number().describe("Variant primary key"),
+  productId: zod.string().describe("Stripe product ID (prod_...)"),
+  productName: zod.string(),
+  productImageUrl: zod.string().nullish(),
+  size: zod.string(),
+  color: zod.string(),
+  stock: zod.number(),
+  status: zod
+    .enum(["low", "out", "ok"])
+    .describe(
+      'Inventory status of the variant. \"out\" = stock is 0, \"low\" = stock is at or below the threshold, \"ok\" = stock is above the threshold (only returned by the restock endpoint after a variant is replenished past the threshold; never appears in the inventory listing).',
+    ),
+});
+export const ListLowStockInventoryResponse = zod.array(
+  ListLowStockInventoryResponseItem,
+);
+
+/**
+ * @summary Add stock to a variant (admin)
+ */
+export const RestockVariantParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const restockVariantBodyAmountMax = 10000;
+
+export const RestockVariantBody = zod.object({
+  amount: zod
+    .number()
+    .min(1)
+    .max(restockVariantBodyAmountMax)
+    .describe("Number of units to add to this variant's stock"),
+});
+
+export const RestockVariantResponse = zod.object({
+  id: zod.number().describe("Variant primary key"),
+  productId: zod.string().describe("Stripe product ID (prod_...)"),
+  productName: zod.string(),
+  productImageUrl: zod.string().nullish(),
+  size: zod.string(),
+  color: zod.string(),
+  stock: zod.number(),
+  status: zod
+    .enum(["low", "out", "ok"])
+    .describe(
+      'Inventory status of the variant. \"out\" = stock is 0, \"low\" = stock is at or below the threshold, \"ok\" = stock is above the threshold (only returned by the restock endpoint after a variant is replenished past the threshold; never appears in the inventory listing).',
+    ),
+});

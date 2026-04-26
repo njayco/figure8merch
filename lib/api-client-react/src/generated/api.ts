@@ -33,11 +33,13 @@ import type {
   HealthStatus,
   ListProductsParams,
   LoginBody,
+  LowStockVariant,
   MessageResponse,
   Order,
   Product,
   RegisterBody,
   RemoveFromCartParams,
+  RestockVariantBody,
   UpdateCartItemBody,
   UpdateCartItemParams,
   UpdateOrderStatusBody,
@@ -2314,3 +2316,165 @@ export function useListCustomers<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary List low-stock and sold-out variants across all products (admin)
+ */
+export const getListLowStockInventoryUrl = () => {
+  return `/api/admin/inventory`;
+};
+
+export const listLowStockInventory = async (
+  options?: RequestInit,
+): Promise<LowStockVariant[]> => {
+  return customFetch<LowStockVariant[]>(getListLowStockInventoryUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListLowStockInventoryQueryKey = () => {
+  return [`/api/admin/inventory`] as const;
+};
+
+export const getListLowStockInventoryQueryOptions = <
+  TData = Awaited<ReturnType<typeof listLowStockInventory>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listLowStockInventory>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListLowStockInventoryQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listLowStockInventory>>
+  > = ({ signal }) => listLowStockInventory({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listLowStockInventory>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListLowStockInventoryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listLowStockInventory>>
+>;
+export type ListLowStockInventoryQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List low-stock and sold-out variants across all products (admin)
+ */
+
+export function useListLowStockInventory<
+  TData = Awaited<ReturnType<typeof listLowStockInventory>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listLowStockInventory>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListLowStockInventoryQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Add stock to a variant (admin)
+ */
+export const getRestockVariantUrl = (id: number) => {
+  return `/api/admin/variants/${id}/restock`;
+};
+
+export const restockVariant = async (
+  id: number,
+  restockVariantBody: RestockVariantBody,
+  options?: RequestInit,
+): Promise<LowStockVariant> => {
+  return customFetch<LowStockVariant>(getRestockVariantUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(restockVariantBody),
+  });
+};
+
+export const getRestockVariantMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof restockVariant>>,
+    TError,
+    { id: number; data: BodyType<RestockVariantBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof restockVariant>>,
+  TError,
+  { id: number; data: BodyType<RestockVariantBody> },
+  TContext
+> => {
+  const mutationKey = ["restockVariant"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof restockVariant>>,
+    { id: number; data: BodyType<RestockVariantBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return restockVariant(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RestockVariantMutationResult = NonNullable<
+  Awaited<ReturnType<typeof restockVariant>>
+>;
+export type RestockVariantMutationBody = BodyType<RestockVariantBody>;
+export type RestockVariantMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Add stock to a variant (admin)
+ */
+export const useRestockVariant = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof restockVariant>>,
+    TError,
+    { id: number; data: BodyType<RestockVariantBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof restockVariant>>,
+  TError,
+  { id: number; data: BodyType<RestockVariantBody> },
+  TContext
+> => {
+  return useMutation(getRestockVariantMutationOptions(options));
+};

@@ -253,8 +253,49 @@ export interface AdminStats {
   totalOrders: number;
   totalCustomers: number;
   totalProducts: number;
+  /** Number of variants with stock between 1 and the low-stock threshold (inclusive) */
+  lowStockCount: number;
+  /** Number of variants with stock equal to 0 */
+  outOfStockCount: number;
+  /** Stock level at or below which a variant is considered low stock (e.g. 3) */
+  lowStockThreshold: number;
   recentOrders: AdminOrder[];
   topProducts: AdminStatsTopProductsItem[];
+}
+
+/**
+ * Inventory status of the variant. "out" = stock is 0, "low" = stock is at or below the threshold, "ok" = stock is above the threshold (only returned by the restock endpoint after a variant is replenished past the threshold; never appears in the inventory listing).
+ */
+export type LowStockVariantStatus =
+  (typeof LowStockVariantStatus)[keyof typeof LowStockVariantStatus];
+
+export const LowStockVariantStatus = {
+  low: "low",
+  out: "out",
+  ok: "ok",
+} as const;
+
+export interface LowStockVariant {
+  /** Variant primary key */
+  id: number;
+  /** Stripe product ID (prod_...) */
+  productId: string;
+  productName: string;
+  productImageUrl?: string | null;
+  size: string;
+  color: string;
+  stock: number;
+  /** Inventory status of the variant. "out" = stock is 0, "low" = stock is at or below the threshold, "ok" = stock is above the threshold (only returned by the restock endpoint after a variant is replenished past the threshold; never appears in the inventory listing). */
+  status: LowStockVariantStatus;
+}
+
+export interface RestockVariantBody {
+  /**
+   * Number of units to add to this variant's stock
+   * @minimum 1
+   * @maximum 10000
+   */
+  amount: number;
 }
 
 export interface EmailSignupBody {

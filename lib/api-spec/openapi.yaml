@@ -621,6 +621,62 @@ paths:
                 items:
                   $ref: "#/components/schemas/User"
 
+  /admin/inventory:
+    get:
+      operationId: listLowStockInventory
+      tags: [admin]
+      summary: List low-stock and sold-out variants across all products (admin)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Low and out-of-stock variants
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LowStockVariant"
+
+  /admin/variants/{id}/restock:
+    post:
+      operationId: restockVariant
+      tags: [admin]
+      summary: Add stock to a variant (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RestockVariantBody"
+      responses:
+        "200":
+          description: Updated variant stock
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LowStockVariant"
+        "400":
+          description: Invalid amount
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Variant not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1116,6 +1172,15 @@ components:
           type: integer
         totalProducts:
           type: integer
+        lowStockCount:
+          type: integer
+          description: Number of variants with stock between 1 and the low-stock threshold (inclusive)
+        outOfStockCount:
+          type: integer
+          description: Number of variants with stock equal to 0
+        lowStockThreshold:
+          type: integer
+          description: Stock level at or below which a variant is considered low stock (e.g. 3)
         recentOrders:
           type: array
           items:
@@ -1147,8 +1212,59 @@ components:
         - totalOrders
         - totalCustomers
         - totalProducts
+        - lowStockCount
+        - outOfStockCount
+        - lowStockThreshold
         - recentOrders
         - topProducts
+
+    LowStockVariant:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Variant primary key
+        productId:
+          type: string
+          description: Stripe product ID (prod_...)
+        productName:
+          type: string
+        productImageUrl:
+          type: string
+          nullable: true
+        size:
+          type: string
+        color:
+          type: string
+        stock:
+          type: integer
+        status:
+          type: string
+          enum: [low, out, ok]
+          description: >-
+            Inventory status of the variant. "out" = stock is 0, "low" = stock
+            is at or below the threshold, "ok" = stock is above the threshold
+            (only returned by the restock endpoint after a variant is replenished
+            past the threshold; never appears in the inventory listing).
+      required:
+        - id
+        - productId
+        - productName
+        - size
+        - color
+        - stock
+        - status
+
+    RestockVariantBody:
+      type: object
+      properties:
+        amount:
+          type: integer
+          minimum: 1
+          maximum: 10000
+          description: Number of units to add to this variant's stock
+      required:
+        - amount
 
     # ── Email ─────────────────────────────────────────────────────────────
     EmailSignupBody:

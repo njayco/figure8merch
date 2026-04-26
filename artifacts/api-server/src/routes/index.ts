@@ -8,6 +8,7 @@ import ordersRouter from "./orders";
 import emailRouter from "./email";
 import uploadRouter from "./upload";
 import stripeRouter from "./stripe";
+import adminRouter from "./admin";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(ordersRouter);
 router.use(emailRouter);
 router.use(uploadRouter);
 router.use(stripeRouter);
+router.use(adminRouter);
 
 export default router;
