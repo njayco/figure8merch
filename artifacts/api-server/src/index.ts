@@ -64,9 +64,9 @@ async function initStripe() {
 // Ensure admin user exists with current credentials from environment secrets
 await initAdmin();
 
-// Initialize Stripe schema and sync
-await initStripe();
-
+// Start listening immediately so the port opens before Stripe init (which
+// can take several seconds in production and would cause health-check timeouts
+// if we awaited it before calling listen).
 app.listen(port, (err) => {
   if (err) {
     logger.error({ err }, "Error listening on port");
@@ -74,4 +74,9 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
+});
+
+// Initialize Stripe schema and sync in the background after the port is open.
+initStripe().catch((err) => {
+  logger.error({ err }, "Unhandled error in Stripe initialization");
 });
