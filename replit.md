@@ -71,7 +71,8 @@ Categories: sets, tops, bottoms, outerwear
 ## Key Commands
 
 - `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
+- `pnpm run test` — run every package's `test` script (currently just `@workspace/figure8`'s Vitest suite); skips packages without one
+- `pnpm run build` — typecheck + test + build all packages (a failing test blocks the build the same way a failing typecheck does)
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - `pnpm --filter @workspace/api-server run dev` — run API server locally
@@ -87,6 +88,14 @@ component as `*.test.tsx` and are excluded from `tsc` typecheck via the
 artifact's `tsconfig.json`. Mock generated API hooks (`useUpdateProduct`,
 etc.) at the module level — they're plain React Query mutations so a stub
 returning `{ mutate, isPending: false }` is enough.
+
+The suite runs automatically on every change: the root `pnpm run build`
+chain is `typecheck && test && per-package build`, so a failing test
+fails the deploy build the same way a failing typecheck does today.
+
+To add a new test suite to another package, give that package a `test`
+script — the root `pnpm run test` discovers it automatically via
+`pnpm -r --if-present run test`.
 
 ## Transactional Email
 
