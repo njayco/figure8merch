@@ -14,7 +14,7 @@ A full-stack luxury athleisure storefront for Figure 8 — featuring an editoria
 - **Shop** — product catalog backed by Stripe, with category filters and search
 - **Product detail** — size/color selection, wishlist, add to cart
 - **Cart** — quantity update, confirm-before-remove, NYC same-day delivery message on orders over $150
-- **Checkout** — real Stripe payments via Stripe Elements / PaymentIntents
+- **Checkout** — real Stripe payments via hosted Stripe Checkout Sessions (with order completion on the success redirect)
 - **Order history** — 4-step progress (Placed → Processing → Shipped → Delivered) with carrier, tracking number, and estimated delivery
 - **Wishlist** — heart icon on product cards, persisted server-side
 - **Email popup** — 3s delay, 10% off code `F8FIRST`
@@ -46,7 +46,7 @@ A full-stack luxury athleisure storefront for Figure 8 — featuring an editoria
 | Backend | Node.js 24, Express 5 |
 | Database | PostgreSQL via Drizzle ORM |
 | Validation | Zod (`zod/v4`), `drizzle-zod` |
-| Payments | Stripe (Stripe Elements + `stripe-replit-sync`) |
+| Payments | Stripe Checkout Sessions + `stripe-replit-sync` (catalog mirrored into local `stripe.*` tables) |
 | Email | Resend (Replit connector) |
 | Auth | JWT (`jsonwebtoken` + `bcryptjs`) |
 | Build | esbuild (api-server bundle), Vite (frontends) |
@@ -127,16 +127,16 @@ pnpm --filter @workspace/api-client-react exec tsc -p tsconfig.json
 
 ## Environment Variables
 
+The only secrets you set yourself live in Replit Secrets:
+
 | Variable | Description |
 |---|---|
 | `DATABASE_URL` | PostgreSQL connection string |
 | `JWT_SECRET` | Secret used to sign JWT tokens |
 | `ADMIN_EMAIL` | Email for the seeded admin account |
 | `ADMIN_PASSWORD` | Password for the seeded admin account |
-| `STRIPE_SECRET_KEY` | Stripe API key (server) |
-| `VITE_STRIPE_PUBLISHABLE_KEY` | Stripe publishable key (storefront) |
 
-The Resend, Stripe, and GitHub integrations are wired through Replit connectors, so their credentials are managed by the connector rather than as raw env vars.
+Stripe, Resend, and GitHub credentials are **not** set as raw env vars — they come from Replit connectors. The api-server fetches them on demand via `getUncachableStripeClient` / `getStripePublishableKey` (`artifacts/api-server/src/lib/stripeClient.ts`) and the Resend client (`artifacts/api-server/src/lib/resendClient.ts`). The storefront fetches the Stripe publishable key from `GET /api/stripe/config` at runtime, so there is no `VITE_STRIPE_*` build-time env var to set.
 
 ---
 
