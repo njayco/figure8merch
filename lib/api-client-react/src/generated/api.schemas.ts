@@ -101,6 +101,24 @@ export interface Product {
   stripePriceId: string;
 }
 
+/**
+ * One Stripe price that has been (or is) attached to a product.
+ */
+export interface PriceHistoryEntry {
+  /** Stripe price ID (price_...) */
+  priceId: string;
+  /** Price amount in dollars. Null when Stripe stored no unit_amount. */
+  unitAmount: number | null;
+  /** ISO 4217 currency code (lowercase, e.g. "usd"). */
+  currency: string;
+  /** Whether the Stripe price is still active. Old prices are deactivated when admins change a product's price. */
+  active: boolean;
+  /** True when this price is the product's current default price. */
+  isCurrent: boolean;
+  /** When the Stripe price was created. */
+  createdAt: string;
+}
+
 export interface UpdateVariantStockBody {
   size: string;
   color: string;
@@ -162,6 +180,9 @@ export interface OrderItem {
   color?: string;
   /** Current product photo URL, attached at read time so admin views can render thumbnails. May be null/missing for products without an uploaded photo. */
   imageUrl?: string | null;
+  /** Current sticker price of the product (in dollars), attached at read time on admin endpoints so the dashboard can flag past orders that were charged a different amount than the product's price today. Null when the product is no longer available, when the current price could not be resolved, or on non-admin endpoints that don't include this enrichment.
+   */
+  currentPrice?: number | null;
 }
 
 export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];

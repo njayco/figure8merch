@@ -132,6 +132,43 @@ export async function getStripeProductSummaries(ids: string[]): Promise<StripePr
   `);
 }
 
+export interface PriceHistoryRow {
+  price_id: string;
+  unit_amount: number | null;
+  currency: string;
+  active: boolean;
+  is_current: boolean;
+  created: number | null;
+}
+
+// Returns every Stripe price ever attached to a product, newest first, with
+// the product's current default price flagged. Returns null when the product
+// itself does not exist in the synced Stripe data so callers can 404.
+export async function getProductPriceHistory(
+  id: string,
+): Promise<PriceHistoryRow[] | null> {
+  const productRows = await executeRaw<{ id: string; default_price: string | null }>(sql`
+    SELECT p.id, p.default_price
+    FROM stripe.products p
+    WHERE p.id = ${id}
+  `);
+  if (productRows.length === 0) return null;
+  const defaultPriceId = productRows[0].default_price ?? null;
+
+  return executeRaw<PriceHistoryRow>(sql`
+    SELECT
+      pr.id AS price_id,
+      pr.unit_amount,
+      pr.currency,
+      pr.active,
+      (pr.id = ${defaultPriceId}) AS is_current,
+      pr.created
+    FROM stripe.prices pr
+    WHERE pr.product = ${id}
+    ORDER BY pr.created DESC, pr.id DESC
+  `);
+}
+
 export async function getStripeProductImagesByIds(
   ids: string[],
 ): Promise<Map<string, string | null>> {

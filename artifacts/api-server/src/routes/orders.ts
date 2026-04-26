@@ -76,13 +76,21 @@ function toAdminOrderShape(
   order: typeof ordersTable.$inferSelect,
   user: typeof usersTable.$inferSelect,
   imageMap?: Map<string, string | null>,
+  currentPriceMap?: Map<string, number | null>,
 ) {
-  const items = imageMap
-    ? order.items.map((item) => ({
-        ...item,
-        imageUrl: imageMap.get(item.productId) ?? null,
-      }))
-    : order.items;
+  const items = order.items.map((item) => {
+    const next: Record<string, unknown> = { ...item };
+    if (imageMap) next.imageUrl = imageMap.get(item.productId) ?? null;
+    if (currentPriceMap) {
+      // Default to null when the lookup didn't find a current price (e.g. the
+      // product was archived) so the admin UI can render "—" instead of
+      // crashing or pretending it matches.
+      next.currentPrice = currentPriceMap.has(item.productId)
+        ? currentPriceMap.get(item.productId) ?? null
+        : null;
+    }
+    return next;
+  });
   return {
     id: order.id,
     userId: order.userId,
@@ -115,6 +123,31 @@ async function buildOrderImageMap(
   // their photo in the admin orders table — admins triaging past orders need
   // the visual cue regardless of current product status.
   return getStripeProductImagesByIds([...productIds]);
+}
+
+// Build a productId -> current sticker price (in dollars) map for every
+// product referenced by the given orders. This powers the "charged $X / now $Y"
+// diff in the admin orders view: getStripeProductSummaries only returns
+// currently active products, so anything missing from the map (archived
+// products, products whose canonical price couldn't be resolved) becomes a
+// null entry and the UI renders "—" rather than misleadingly matching.
+async function buildOrderCurrentPriceMap(
+  orders: Array<typeof ordersTable.$inferSelect>,
+): Promise<Map<string, number | null>> {
+  const productIds = new Set<string>();
+  for (const o of orders) {
+    for (const item of o.items) {
+      if (item.productId) productIds.add(item.productId);
+    }
+  }
+  const map = new Map<string, number | null>();
+  if (productIds.size === 0) return map;
+  for (const id of productIds) map.set(id, null);
+  const summaries = await getStripeProductSummaries([...productIds]);
+  for (const s of summaries) {
+    map.set(s.id, s.unit_amount != null ? s.unit_amount / 100 : null);
+  }
+  return map;
 }
 
 router.get("/orders", requireAuth, async (req: AuthRequest, res): Promise<void> => {
@@ -213,8 +246,14 @@ router.get("/admin/orders", requireAdmin, async (_req, res): Promise<void> => {
     .innerJoin(usersTable, eq(ordersTable.userId, usersTable.id))
     .orderBy(desc(ordersTable.createdAt));
 
-  const imageMap = await buildOrderImageMap(rows.map((r) => r.order));
-  res.json(rows.map((r) => toAdminOrderShape(r.order, r.user, imageMap)));
+  const orderList = rows.map((r) => r.order);
+  const [imageMap, currentPriceMap] = await Promise.all([
+    buildOrderImageMap(orderList),
+    buildOrderCurrentPriceMap(orderList),
+  ]);
+  res.json(
+    rows.map((r) => toAdminOrderShape(r.order, r.user, imageMap, currentPriceMap)),
+  );
 });
 
 router.patch("/admin/orders/:id", requireAdmin, async (req, res): Promise<void> => {
@@ -403,8 +442,14 @@ router.get("/admin/stats", requireAdmin, async (_req, res): Promise<void> => {
     .limit(5);
 
   const recentOrders = await (async () => {
-    const imageMap = await buildOrderImageMap(recentRows.map((r) => r.order));
-    return recentRows.map((r) => toAdminOrderShape(r.order, r.user, imageMap));
+    const orderList = recentRows.map((r) => r.order);
+    const [imageMap, currentPriceMap] = await Promise.all([
+      buildOrderImageMap(orderList),
+      buildOrderCurrentPriceMap(orderList),
+    ]);
+    return recentRows.map((r) =>
+      toAdminOrderShape(r.order, r.user, imageMap, currentPriceMap),
+    );
   })();
 
   // Fetch actual revenue from Stripe by summing all succeeded payment intents.

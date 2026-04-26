@@ -347,6 +347,16 @@ function InventoryRow({ item }: { item: LowStockVariant }) {
   );
 }
 
+function priceDiffersFromCurrent(
+  charged: number,
+  current: number | null | undefined,
+): current is number {
+  if (current == null) return false;
+  // Round to cents before comparing so a $19.99 vs $19.989999 from float math
+  // doesn't get flagged as a real price change.
+  return Math.round(charged * 100) !== Math.round(current * 100);
+}
+
 function OrderItemThumbnails({ items }: { items: AdminOrder["items"] }) {
   if (!items || items.length === 0) {
     return <span className="text-xs text-muted-foreground">—</span>;
@@ -358,6 +368,9 @@ function OrderItemThumbnails({ items }: { items: AdminOrder["items"] }) {
           (v): v is string => !!v && v.trim() !== "",
         );
         const variantLabel = variantParts.join(" · ");
+        const currentPrice = item.currentPrice;
+        const priceChanged = priceDiffersFromCurrent(item.price, currentPrice);
+        const priceWentUp = priceChanged && currentPrice > item.price;
         return (
           <Tooltip key={`${item.productId}-${item.size}-${item.color ?? ""}-${idx}`}>
             <TooltipTrigger asChild>
@@ -378,14 +391,51 @@ function OrderItemThumbnails({ items }: { items: AdminOrder["items"] }) {
                     ×{item.quantity}
                   </span>
                 )}
+                {priceChanged && (
+                  <span
+                    className={`absolute top-0 left-0 ${
+                      priceWentUp
+                        ? "bg-emerald-600 text-white"
+                        : "bg-amber-500 text-white"
+                    } text-[9px] leading-none px-1 py-0.5 font-mono`}
+                    aria-hidden="true"
+                    data-testid={`order-item-price-diff-badge-${item.productId}-${idx}`}
+                    title="Product price has changed since this order"
+                  >
+                    {priceWentUp ? "↑" : "↓"}
+                  </span>
+                )}
               </button>
             </TooltipTrigger>
-            <TooltipContent side="top" className="max-w-[220px]">
+            <TooltipContent side="top" className="max-w-[240px]">
               <div className="font-medium">{item.productName}</div>
               {variantLabel && (
                 <div className="opacity-80 mt-0.5">{variantLabel}</div>
               )}
               <div className="opacity-80 mt-0.5">Qty {item.quantity}</div>
+              {priceChanged ? (
+                <div
+                  className="mt-1 pt-1 border-t border-border/40"
+                  data-testid={`order-item-price-diff-${item.productId}-${idx}`}
+                >
+                  <div className="opacity-80">
+                    Charged ${item.price.toFixed(2)}
+                  </div>
+                  <div className="opacity-80">
+                    Now ${currentPrice.toFixed(2)}{" "}
+                    <span
+                      className={priceWentUp ? "text-emerald-300" : "text-amber-300"}
+                    >
+                      ({priceWentUp ? "+" : "−"}$
+                      {Math.abs(currentPrice - item.price).toFixed(2)})
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="opacity-80 mt-0.5">
+                  ${item.price.toFixed(2)} each
+                </div>
+              )}
             </TooltipContent>
           </Tooltip>
         );

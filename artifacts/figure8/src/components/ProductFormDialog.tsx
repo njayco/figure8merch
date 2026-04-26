@@ -3,15 +3,20 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   useCreateProduct,
   useUpdateProduct,
+  useGetProductPriceHistory,
   getListProductsQueryKey,
   getGetProductQueryKey,
+  getGetProductPriceHistoryQueryKey,
   getGetAdminStatsQueryKey,
+  getListAdminOrdersQueryKey,
 } from "@workspace/api-client-react";
 import type {
   CreateProductBody,
   ListProductsParams,
+  PriceHistoryEntry,
   Product,
 } from "@workspace/api-client-react";
+import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -41,6 +46,120 @@ interface VariantState {
 type ProductFormDialogProps =
   | { mode: "create"; product?: undefined; trigger?: ReactNode }
   | { mode: "edit"; product: Product; trigger?: ReactNode };
+
+function formatPriceAmount(unitAmount: number | null, currency: string): string {
+  if (unitAmount == null) return "—";
+  // Stripe currencies are lowercase ISO codes; Intl.NumberFormat needs upper.
+  const code = (currency || "usd").toUpperCase();
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: code,
+    }).format(unitAmount);
+  } catch {
+    // Defensive fallback for exotic currency codes Intl rejects — better to
+    // show a plain number than crash the dialog.
+    return `${code} ${unitAmount.toFixed(2)}`;
+  }
+}
+
+interface PriceHistoryNoteProps {
+  loading: boolean;
+  error: unknown;
+  history: PriceHistoryEntry[] | undefined;
+}
+
+function PriceHistoryNote({ loading, error, history }: PriceHistoryNoteProps) {
+  if (loading) {
+    return (
+      <p
+        className="text-xs text-muted-foreground"
+        data-testid="text-price-history-loading"
+      >
+        Loading price history…
+      </p>
+    );
+  }
+  if (error) {
+    return (
+      <p
+        className="text-xs text-destructive"
+        data-testid="text-price-history-error"
+      >
+        Couldn't load price history.
+      </p>
+    );
+  }
+  if (!history || history.length === 0) {
+    return (
+      <p
+        className="text-xs text-muted-foreground"
+        data-testid="text-price-history-empty"
+      >
+        No price history yet.
+      </p>
+    );
+  }
+
+  // Only one price ever -> nothing interesting to surface; the price field
+  // already shows the current value.
+  if (history.length === 1) {
+    return (
+      <p
+        className="text-xs text-muted-foreground"
+        data-testid="text-price-history-single"
+      >
+        Price hasn't changed since this product was created.
+      </p>
+    );
+  }
+
+  return (
+    <div
+      className="border border-border bg-muted/20 px-3 py-2 space-y-1"
+      data-testid="section-price-history"
+    >
+      <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
+        Price history
+      </p>
+      <ul className="space-y-0.5">
+        {history.map((entry) => (
+          <li
+            key={entry.priceId}
+            className="flex items-baseline justify-between gap-3 text-xs"
+            data-testid={`row-price-history-${entry.priceId}`}
+          >
+            <span className="font-mono">
+              {formatPriceAmount(entry.unitAmount ?? null, entry.currency)}
+              {entry.isCurrent && (
+                <span
+                  className="ml-2 inline-block px-1.5 py-0.5 text-[9px] uppercase tracking-wider bg-primary/10 text-primary"
+                  data-testid={`badge-price-current-${entry.priceId}`}
+                >
+                  Current
+                </span>
+              )}
+              {!entry.isCurrent && !entry.active && (
+                <span
+                  className="ml-2 inline-block px-1.5 py-0.5 text-[9px] uppercase tracking-wider bg-muted text-muted-foreground"
+                  data-testid={`badge-price-archived-${entry.priceId}`}
+                >
+                  Archived
+                </span>
+              )}
+            </span>
+            <span className="text-muted-foreground">
+              {format(new Date(entry.createdAt), "MMM d, yyyy")}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="text-[11px] text-muted-foreground pt-1">
+        Past orders keep the price they were charged at the time.
+      </p>
+    </div>
+  );
+}
 
 export function ProductFormDialog(props: ProductFormDialogProps) {
   const { mode } = props;
@@ -131,6 +250,20 @@ export function ProductFormDialog(props: ProductFormDialogProps) {
     Number.isFinite(numericPriceParsed) &&
     numericPriceParsed > 0 &&
     numericPriceParsed !== originalPrice;
+
+  // Pull price history for the product being edited so admins can see how the
+  // price has changed over time (and answer customer questions about past
+  // orders charged at a different amount). Only enabled when editing AND the
+  // dialog is actually open, so we don't spam requests for every closed
+  // dialog instance rendered in the products table.
+  const priceHistoryQuery = useGetProductPriceHistory(
+    editingProduct?.id ?? "",
+    {
+      query: {
+        enabled: isEdit && open && !!editingProduct?.id,
+      },
+    },
+  );
 
   const addSize = () => {
     const v = sizeInput.trim().toUpperCase();
@@ -341,6 +474,15 @@ export function ProductFormDialog(props: ProductFormDialogProps) {
       // they refetch in the background.
       queryClient.invalidateQueries({ queryKey: getGetAdminStatsQueryKey() });
 
+      // A price change deactivates the old Stripe price and creates a new
+      // one. Invalidate the per-product price history and the admin orders
+      // list so both the in-dialog history note and the "was $X / now $Y"
+      // diff in the orders table refresh in the background.
+      queryClient.invalidateQueries({
+        queryKey: getGetProductPriceHistoryQueryKey(saved.id),
+      });
+      queryClient.invalidateQueries({ queryKey: getListAdminOrdersQueryKey() });
+
       toast.success(isEdit ? "Product updated" : "Product created");
       handleClose(false);
     };
@@ -487,6 +629,13 @@ export function ProductFormDialog(props: ProductFormDialogProps) {
                     price.
                   </span>
                 </div>
+              )}
+              {isEdit && (
+                <PriceHistoryNote
+                  loading={priceHistoryQuery.isLoading}
+                  error={priceHistoryQuery.error}
+                  history={priceHistoryQuery.data}
+                />
               )}
             </div>
             <div className="flex items-end gap-2">

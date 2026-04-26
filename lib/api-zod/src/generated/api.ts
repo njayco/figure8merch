@@ -325,6 +325,42 @@ export const ListFeaturedProductsResponse = zod.array(
 );
 
 /**
+ * Returns every Stripe price ever attached to the product (active and archived), newest first, derived from the synced Stripe data with no extra schema. Useful for surfacing how a product's price has changed over time and explaining differences between past order totals and the current sticker price.
+
+ * @summary List the Stripe price history for a product (admin)
+ */
+export const GetProductPriceHistoryParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const GetProductPriceHistoryResponseItem = zod
+  .object({
+    priceId: zod.string().describe("Stripe price ID (price_...)"),
+    unitAmount: zod
+      .number()
+      .nullable()
+      .describe(
+        "Price amount in dollars. Null when Stripe stored no unit_amount.",
+      ),
+    currency: zod
+      .string()
+      .describe('ISO 4217 currency code (lowercase, e.g. \"usd\").'),
+    active: zod
+      .boolean()
+      .describe(
+        "Whether the Stripe price is still active. Old prices are deactivated when admins change a product's price.",
+      ),
+    isCurrent: zod
+      .boolean()
+      .describe("True when this price is the product's current default price."),
+    createdAt: zod.coerce.date().describe("When the Stripe price was created."),
+  })
+  .describe("One Stripe price that has been (or is) attached to a product.");
+export const GetProductPriceHistoryResponse = zod.array(
+  GetProductPriceHistoryResponseItem,
+);
+
+/**
  * @summary Get current user's cart
  */
 export const GetCartResponse = zod.object({
@@ -625,6 +661,12 @@ export const ListOrdersResponseItem = zod.object({
         .describe(
           "Current product photo URL, attached at read time so admin views can render thumbnails. May be null\/missing for products without an uploaded photo.",
         ),
+      currentPrice: zod
+        .number()
+        .nullish()
+        .describe(
+          "Current sticker price of the product (in dollars), attached at read time on admin endpoints so the dashboard can flag past orders that were charged a different amount than the product's price today. Null when the product is no longer available, when the current price could not be resolved, or on non-admin endpoints that don't include this enrichment.\n",
+        ),
     }),
   ),
   total: zod.number(),
@@ -703,6 +745,12 @@ export const GetOrderResponse = zod.object({
         .nullish()
         .describe(
           "Current product photo URL, attached at read time so admin views can render thumbnails. May be null\/missing for products without an uploaded photo.",
+        ),
+      currentPrice: zod
+        .number()
+        .nullish()
+        .describe(
+          "Current sticker price of the product (in dollars), attached at read time on admin endpoints so the dashboard can flag past orders that were charged a different amount than the product's price today. Null when the product is no longer available, when the current price could not be resolved, or on non-admin endpoints that don't include this enrichment.\n",
         ),
     }),
   ),
@@ -829,6 +877,12 @@ export const GetAdminStatsResponse = zod.object({
             .describe(
               "Current product photo URL, attached at read time so admin views can render thumbnails. May be null\/missing for products without an uploaded photo.",
             ),
+          currentPrice: zod
+            .number()
+            .nullish()
+            .describe(
+              "Current sticker price of the product (in dollars), attached at read time on admin endpoints so the dashboard can flag past orders that were charged a different amount than the product's price today. Null when the product is no longer available, when the current price could not be resolved, or on non-admin endpoints that don't include this enrichment.\n",
+            ),
         }),
       ),
       total: zod.number(),
@@ -885,6 +939,12 @@ export const ListAdminOrdersResponseItem = zod.object({
         .nullish()
         .describe(
           "Current product photo URL, attached at read time so admin views can render thumbnails. May be null\/missing for products without an uploaded photo.",
+        ),
+      currentPrice: zod
+        .number()
+        .nullish()
+        .describe(
+          "Current sticker price of the product (in dollars), attached at read time on admin endpoints so the dashboard can flag past orders that were charged a different amount than the product's price today. Null when the product is no longer available, when the current price could not be resolved, or on non-admin endpoints that don't include this enrichment.\n",
         ),
     }),
   ),
@@ -948,6 +1008,12 @@ export const UpdateOrderStatusResponse = zod.object({
         .nullish()
         .describe(
           "Current product photo URL, attached at read time so admin views can render thumbnails. May be null\/missing for products without an uploaded photo.",
+        ),
+      currentPrice: zod
+        .number()
+        .nullish()
+        .describe(
+          "Current sticker price of the product (in dollars), attached at read time on admin endpoints so the dashboard can flag past orders that were charged a different amount than the product's price today. Null when the product is no longer available, when the current price could not be resolved, or on non-admin endpoints that don't include this enrichment.\n",
         ),
     }),
   ),

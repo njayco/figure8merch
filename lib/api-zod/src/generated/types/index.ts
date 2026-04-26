@@ -31,6 +31,7 @@ export * from "./messageResponse";
 export * from "./order";
 export * from "./orderItem";
 export * from "./orderStatus";
+export * from "./priceHistoryEntry";
 export * from "./product";
 export * from "./productVariant";
 export * from "./registerBody";

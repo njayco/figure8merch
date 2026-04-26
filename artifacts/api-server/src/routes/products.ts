@@ -13,6 +13,7 @@ import {
   countActiveStripeProducts,
   getVariantsForProduct,
   getVariantsForProducts,
+  getProductPriceHistory,
   type VariantRow,
 } from "../lib/stripeDb";
 import { requireAdmin } from "../middlewares/auth";
@@ -241,7 +242,7 @@ router.put("/products/:id", requireAdmin, async (req, res): Promise<void> => {
   const { name, description, price, imageUrl, category, sizes, colors, variants, isFeatured } =
     validated.data;
 
-  const absoluteImageUrl = buildAbsoluteImageUrl(req, imageUrl);
+  const absoluteImageUrl = toAbsoluteImageUrl(imageUrl ?? "", req);
 
   const stripe = await getUncachableStripeClient();
 
@@ -529,6 +530,39 @@ router.put("/products/:id/image", requireAdmin, async (req, res): Promise<void> 
     res.status(500).json({ error: message });
   }
 });
+
+router.get(
+  "/admin/products/:id/price-history",
+  requireAdmin,
+  async (req, res): Promise<void> => {
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    try {
+      const rows = await getProductPriceHistory(id);
+      if (rows === null) {
+        res.status(404).json({ error: "Product not found" });
+        return;
+      }
+      res.json(
+        rows.map((r) => ({
+          priceId: r.price_id,
+          unitAmount: r.unit_amount != null ? r.unit_amount / 100 : null,
+          currency: r.currency,
+          active: !!r.active,
+          isCurrent: !!r.is_current,
+          // stripe.prices.created is a unix epoch (seconds); rehydrate to ISO so
+          // the OpenAPI date-time contract holds end-to-end.
+          createdAt: r.created
+            ? new Date(r.created * 1000).toISOString()
+            : new Date(0).toISOString(),
+        })),
+      );
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Failed to fetch price history";
+      res.status(500).json({ error: message });
+    }
+  },
+);
 
 router.delete("/products/:id", requireAdmin, async (_req, res): Promise<void> => {
   res

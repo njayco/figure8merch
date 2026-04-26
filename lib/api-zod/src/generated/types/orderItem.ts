@@ -18,4 +18,7 @@ export interface OrderItem {
   color?: string;
   /** Current product photo URL, attached at read time so admin views can render thumbnails. May be null/missing for products without an uploaded photo. */
   imageUrl?: string | null;
+  /** Current sticker price of the product (in dollars), attached at read time on admin endpoints so the dashboard can flag past orders that were charged a different amount than the product's price today. Null when the product is no longer available, when the current price could not be resolved, or on non-admin endpoints that don't include this enrichment.
+   */
+  currentPrice?: number | null;
 }

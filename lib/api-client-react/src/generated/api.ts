@@ -36,6 +36,7 @@ import type {
   LowStockVariant,
   MessageResponse,
   Order,
+  PriceHistoryEntry,
   Product,
   ProductVariant,
   RegisterBody,
@@ -1048,6 +1049,96 @@ export function useListFeaturedProducts<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListFeaturedProductsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns every Stripe price ever attached to the product (active and archived), newest first, derived from the synced Stripe data with no extra schema. Useful for surfacing how a product's price has changed over time and explaining differences between past order totals and the current sticker price.
+
+ * @summary List the Stripe price history for a product (admin)
+ */
+export const getGetProductPriceHistoryUrl = (id: string) => {
+  return `/api/admin/products/${id}/price-history`;
+};
+
+export const getProductPriceHistory = async (
+  id: string,
+  options?: RequestInit,
+): Promise<PriceHistoryEntry[]> => {
+  return customFetch<PriceHistoryEntry[]>(getGetProductPriceHistoryUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetProductPriceHistoryQueryKey = (id: string) => {
+  return [`/api/admin/products/${id}/price-history`] as const;
+};
+
+export const getGetProductPriceHistoryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getProductPriceHistory>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getProductPriceHistory>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetProductPriceHistoryQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getProductPriceHistory>>
+  > = ({ signal }) => getProductPriceHistory(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getProductPriceHistory>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetProductPriceHistoryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getProductPriceHistory>>
+>;
+export type GetProductPriceHistoryQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List the Stripe price history for a product (admin)
+ */
+
+export function useGetProductPriceHistory<
+  TData = Awaited<ReturnType<typeof getProductPriceHistory>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getProductPriceHistory>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetProductPriceHistoryQueryOptions(id, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

@@ -328,6 +328,41 @@ paths:
                 items:
                   $ref: "#/components/schemas/Product"
 
+  /admin/products/{id}/price-history:
+    get:
+      operationId: getProductPriceHistory
+      tags: [products, admin]
+      summary: List the Stripe price history for a product (admin)
+      description: >
+        Returns every Stripe price ever attached to the product (active and
+        archived), newest first, derived from the synced Stripe data with no
+        extra schema. Useful for surfacing how a product's price has changed
+        over time and explaining differences between past order totals and the
+        current sticker price.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Price history entries, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PriceHistoryEntry"
+        "404":
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   # ── Cart ──────────────────────────────────────────────────────────────────
   /cart:
     get:
@@ -980,6 +1015,38 @@ components:
         - color
         - stock
 
+    PriceHistoryEntry:
+      type: object
+      description: One Stripe price that has been (or is) attached to a product.
+      properties:
+        priceId:
+          type: string
+          description: Stripe price ID (price_...)
+        unitAmount:
+          type: number
+          nullable: true
+          description: Price amount in dollars. Null when Stripe stored no unit_amount.
+        currency:
+          type: string
+          description: ISO 4217 currency code (lowercase, e.g. "usd").
+        active:
+          type: boolean
+          description: Whether the Stripe price is still active. Old prices are deactivated when admins change a product's price.
+        isCurrent:
+          type: boolean
+          description: True when this price is the product's current default price.
+        createdAt:
+          type: string
+          format: date-time
+          description: When the Stripe price was created.
+      required:
+        - priceId
+        - unitAmount
+        - currency
+        - active
+        - isCurrent
+        - createdAt
+
     UpdateVariantStockBody:
       type: object
       properties:
@@ -1124,6 +1191,16 @@ components:
           type: string
           nullable: true
           description: Current product photo URL, attached at read time so admin views can render thumbnails. May be null/missing for products without an uploaded photo.
+        currentPrice:
+          type: number
+          nullable: true
+          description: >
+            Current sticker price of the product (in dollars), attached at read
+            time on admin endpoints so the dashboard can flag past orders that
+            were charged a different amount than the product's price today.
+            Null when the product is no longer available, when the current
+            price could not be resolved, or on non-admin endpoints that don't
+            include this enrichment.
       required:
         - productId
         - productName
