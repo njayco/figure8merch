@@ -17,10 +17,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 
 export function Cart() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data: cart, isLoading } = useGetCart({
     query: {
@@ -50,6 +52,15 @@ export function Cart() {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetCartQueryKey() });
         },
+        onError: (err: unknown) => {
+          const message =
+            err instanceof Error ? err.message : "Unable to update item quantity";
+          toast({
+            variant: "destructive",
+            title: "Couldn't update item",
+            description: message,
+          });
+        },
       }
     );
   };
@@ -60,6 +71,15 @@ export function Cart() {
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetCartQueryKey() });
+        },
+        onError: (err: unknown) => {
+          const message =
+            err instanceof Error ? err.message : "Unable to remove item from cart";
+          toast({
+            variant: "destructive",
+            title: "Couldn't remove item",
+            description: message,
+          });
         },
       }
     );

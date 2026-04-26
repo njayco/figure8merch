@@ -47,6 +47,11 @@ vi.mock("@/hooks/useAuth", () => ({
   useAuth: () => ({ user: mockUser, isLoading: false }),
 }));
 
+const toastMock = vi.fn();
+vi.mock("@/hooks/use-toast", () => ({
+  useToast: () => ({ toast: toastMock }),
+}));
+
 // ProductImage hits a network endpoint; stub it out so the tests don't try to fetch.
 vi.mock("@/components/ProductImage", () => ({
   ProductImage: () => <span data-testid="product-image" />,
@@ -91,6 +96,7 @@ beforeEach(() => {
   mockUser = { email: "alex@example.com", name: "Alex Doe" };
   updateMutate.mockReset();
   removeMutate.mockReset();
+  toastMock.mockReset();
 });
 
 describe("Cart empty / signed-out / loading states", () => {
@@ -360,5 +366,99 @@ describe("Cart order summary and checkout handoff", () => {
     expect(
       screen.getByText(/Free NYC Same-Day Delivery/i),
     ).toBeInTheDocument();
+  });
+});
+
+describe("Cart error toasts", () => {
+  it("shows a destructive toast with the server message when updating quantity fails", async () => {
+    // Make the update mutation invoke its onError callback with a real Error,
+    // mirroring how Checkout surfaces server errors via toast().
+    updateMutate.mockImplementation((_vars, options) => {
+      options?.onError?.(new Error("Item is out of stock"));
+    });
+
+    const user = userEvent.setup();
+    renderCart();
+
+    const row = screen.getByTestId("cart-item-prod_1-M-Black");
+    await user.click(within(row).getByRole("button", { name: /Increase quantity/i }));
+
+    expect(toastMock).toHaveBeenCalledTimes(1);
+    expect(toastMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variant: "destructive",
+        title: "Couldn't update item",
+        description: "Item is out of stock",
+      }),
+    );
+  });
+
+  it("falls back to a generic message when the update error is not an Error instance", async () => {
+    updateMutate.mockImplementation((_vars, options) => {
+      options?.onError?.("network blip");
+    });
+
+    const user = userEvent.setup();
+    renderCart();
+
+    const row = screen.getByTestId("cart-item-prod_2-L-");
+    await user.click(within(row).getByRole("button", { name: /Increase quantity/i }));
+
+    expect(toastMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variant: "destructive",
+        title: "Couldn't update item",
+        description: "Unable to update item quantity",
+      }),
+    );
+  });
+
+  it("shows a destructive toast with the server message when removing an item fails", async () => {
+    removeMutate.mockImplementation((_vars, options) => {
+      options?.onError?.(new Error("Item no longer in cart"));
+    });
+
+    const user = userEvent.setup();
+    renderCart();
+
+    const row = screen.getByTestId("cart-item-prod_1-M-Black");
+    await user.click(within(row).getByRole("button", { name: /Remove/i }));
+
+    // The row Remove button only opens the confirmation dialog; the mutation
+    // (and therefore the toast) is only triggered after the user confirms.
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(within(dialog).getByRole("button", { name: /^Remove$/i }));
+
+    expect(toastMock).toHaveBeenCalledTimes(1);
+    expect(toastMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variant: "destructive",
+        title: "Couldn't remove item",
+        description: "Item no longer in cart",
+      }),
+    );
+  });
+
+  it("falls back to a generic message when the remove error is not an Error instance", async () => {
+    removeMutate.mockImplementation((_vars, options) => {
+      options?.onError?.({ unexpected: true });
+    });
+
+    const user = userEvent.setup();
+    renderCart();
+
+    const row = screen.getByTestId("cart-item-prod_2-L-");
+    await user.click(within(row).getByRole("button", { name: /Remove/i }));
+
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(within(dialog).getByRole("button", { name: /^Remove$/i }));
+
+    expect(toastMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variant: "destructive",
+        title: "Couldn't remove item",
+        description: "Unable to remove item from cart",
+      }),
+    );
   });
 });
