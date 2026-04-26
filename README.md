@@ -13,7 +13,7 @@ A full-stack luxury athleisure storefront for Figure 8 — featuring an editoria
 - **Interactive 4-panel hero** — hover to preview, click to navigate (New Arrivals, About, Community)
 - **Shop** — product catalog backed by Stripe, with category filters and search
 - **Product detail** — size/color selection, wishlist, add to cart
-- **Cart** — quantity update, confirm-before-remove, NYC same-day delivery message on orders over $150
+- **Cart** — quantity update, confirm-before-remove, "Save for Later" list, NYC same-day delivery message on orders over $150
 - **Checkout** — real Stripe payments via hosted Stripe Checkout Sessions (with order completion on the success redirect)
 - **Order history** — 4-step progress (Placed → Processing → Shipped → Delivered) with carrier, tracking number, and estimated delivery
 - **Wishlist** — heart icon on product cards, persisted server-side
@@ -45,7 +45,7 @@ A full-stack luxury athleisure storefront for Figure 8 — featuring an editoria
 | Data | TanStack Query + Orval-generated hooks from OpenAPI |
 | Backend | Node.js 24, Express 5 |
 | Database | PostgreSQL via Drizzle ORM |
-| Validation | Zod (`zod/v4`), `drizzle-zod` |
+| Validation | Zod, `drizzle-zod` |
 | Payments | Stripe Checkout Sessions + `stripe-replit-sync` (catalog mirrored into local `stripe.*` tables) |
 | Email | Resend (Replit connector) |
 | Auth | JWT (`jsonwebtoken` + `bcryptjs`) |
