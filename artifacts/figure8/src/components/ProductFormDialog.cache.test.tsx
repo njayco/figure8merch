@@ -150,12 +150,78 @@ function renderWith(client: QueryClient, product: Product = baseProduct) {
   );
 }
 
+function renderCreate(client: QueryClient) {
+  return render(
+    <QueryClientProvider client={client}>
+      <ProductFormDialog mode="create" />
+    </QueryClientProvider>,
+  );
+}
+
 async function openDialog(
   user: ReturnType<typeof userEvent.setup>,
   productId: string = baseProduct.id,
 ) {
   await user.click(screen.getByTestId(`button-edit-product-${productId}`));
   return await screen.findByTestId("dialog-edit-product");
+}
+
+async function openCreateDialog(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByTestId("button-new-product"));
+  return await screen.findByTestId("dialog-new-product");
+}
+
+async function fillCreateForm(
+  user: ReturnType<typeof userEvent.setup>,
+  dialog: HTMLElement,
+  values: {
+    name: string;
+    description: string;
+    price: string;
+    category: string;
+    sizes: string[];
+    colors: string[];
+    stock: Record<string, string>;
+    featured?: boolean;
+  },
+) {
+  await user.type(within(dialog).getByTestId("input-product-name"), values.name);
+  await user.type(
+    within(dialog).getByTestId("input-product-description"),
+    values.description,
+  );
+  await user.type(
+    within(dialog).getByTestId("input-product-category"),
+    values.category,
+  );
+  await user.type(
+    within(dialog).getByTestId("input-product-price"),
+    values.price,
+  );
+
+  for (const size of values.sizes) {
+    await user.clear(within(dialog).getByTestId("input-size"));
+    await user.type(within(dialog).getByTestId("input-size"), size);
+    await user.click(within(dialog).getByTestId("button-add-size"));
+  }
+  for (const color of values.colors) {
+    await user.clear(within(dialog).getByTestId("input-color"));
+    await user.type(within(dialog).getByTestId("input-color"), color);
+    await user.click(within(dialog).getByTestId("button-add-color"));
+  }
+  for (const [key, stock] of Object.entries(values.stock)) {
+    const [size, color] = key.split("::");
+    await user.clear(
+      within(dialog).getByTestId(`input-stock-${size}-${color}`),
+    );
+    await user.type(
+      within(dialog).getByTestId(`input-stock-${size}-${color}`),
+      stock,
+    );
+  }
+  if (values.featured) {
+    await user.click(within(dialog).getByTestId("checkbox-product-featured"));
+  }
 }
 
 beforeEach(() => {
@@ -408,6 +474,271 @@ describe("ProductFormDialog cache sync after edit", () => {
     // update must never invent list data the UI never asked for.
     expect(
       client.getQueryData<Product[]>(listKey({ category: "tops" })),
+    ).toBeUndefined();
+    expect(
+      client.getQueryData<Product[]>(listKey({ featured: true })),
+    ).toBeUndefined();
+    expect(
+      client.getQueryData<Product[]>(listKey({ search: "linen" })),
+    ).toBeUndefined();
+  });
+});
+
+describe("ProductFormDialog cache sync after create", () => {
+  it("inserts the newly-created product at the top of every matching list cache and skips ones that don't match", async () => {
+    const user = userEvent.setup();
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const keys = seedCaches(client);
+
+    // Saved (canonical) product returned by the API after create. It's a
+    // tops product, not featured, with "linen" in the name — so it should
+    // appear in: noFilter, byCategoryTops, searchLinen. It must NOT appear
+    // in: byCategoryBottoms, featured.
+    const saved: Product = {
+      id: "prod_new",
+      name: "Linen Blazer",
+      description: "A crisp linen blazer.",
+      price: 129.99,
+      imageUrl: "",
+      category: "tops",
+      sizes: ["M"],
+      colors: ["Sand"],
+      variants: [{ size: "M", color: "Sand", stock: 4 }],
+      isFeatured: false,
+    } as unknown as Product;
+    nextSavedProduct = saved;
+
+    renderCreate(client);
+    const dialog = await openCreateDialog(user);
+    await fillCreateForm(user, dialog, {
+      name: "Linen Blazer",
+      description: "A crisp linen blazer.",
+      price: "129.99",
+      category: "tops",
+      sizes: ["M"],
+      colors: ["Sand"],
+      stock: { "M::Sand": "4" },
+    });
+
+    await user.click(within(dialog).getByTestId("button-submit-product"));
+
+    expect(createMutate).toHaveBeenCalledTimes(1);
+    expect(updateMutate).not.toHaveBeenCalled();
+
+    // Unfiltered list: saved inserted at the top (created DESC).
+    const noFilter = client.getQueryData<Product[]>(keys.noFilter);
+    expect(noFilter).toHaveLength(4);
+    expect(noFilter?.[0]).toEqual(saved);
+    expect(noFilter?.slice(1)).toEqual([
+      baseProduct,
+      otherProduct,
+      bottomsProduct,
+    ]);
+
+    // Category=tops list: saved (a tops product) inserted at the top.
+    const tops = client.getQueryData<Product[]>(keys.byCategoryTops);
+    expect(tops).toHaveLength(3);
+    expect(tops?.[0]).toEqual(saved);
+    expect(tops?.slice(1)).toEqual([baseProduct, otherProduct]);
+
+    // Category=bottoms list: untouched (saved is a tops product).
+    expect(client.getQueryData<Product[]>(keys.byCategoryBottoms)).toEqual([
+      bottomsProduct,
+    ]);
+
+    // Featured list: untouched (saved is not featured).
+    expect(client.getQueryData<Product[]>(keys.featured)).toEqual([
+      bottomsProduct,
+    ]);
+
+    // Search "linen" cache: saved matches (name contains "linen"), inserted
+    // at the top.
+    const search = client.getQueryData<Product[]>(keys.searchLinen);
+    expect(search).toHaveLength(2);
+    expect(search?.[0]).toEqual(saved);
+    expect(search?.[1]).toEqual(baseProduct);
+  });
+
+  it("inserts a featured creation into the featured cache and a bottoms creation into the bottoms cache", async () => {
+    const user = userEvent.setup();
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const keys = seedCaches(client);
+
+    // Saved is a featured bottoms product whose name doesn't contain "linen".
+    // Should appear in: noFilter, byCategoryBottoms, featured.
+    // Should be skipped from: byCategoryTops, searchLinen.
+    const saved: Product = {
+      id: "prod_new_featured",
+      name: "Wool Trousers",
+      description: "Heavy wool trousers.",
+      price: 149.99,
+      imageUrl: "",
+      category: "bottoms",
+      sizes: ["L"],
+      colors: ["Charcoal"],
+      variants: [{ size: "L", color: "Charcoal", stock: 2 }],
+      isFeatured: true,
+    } as unknown as Product;
+    nextSavedProduct = saved;
+
+    renderCreate(client);
+    const dialog = await openCreateDialog(user);
+    await fillCreateForm(user, dialog, {
+      name: "Wool Trousers",
+      description: "Heavy wool trousers.",
+      price: "149.99",
+      category: "bottoms",
+      sizes: ["L"],
+      colors: ["Charcoal"],
+      stock: { "L::Charcoal": "2" },
+      featured: true,
+    });
+
+    await user.click(within(dialog).getByTestId("button-submit-product"));
+
+    expect(createMutate).toHaveBeenCalledTimes(1);
+
+    // Unfiltered list: saved at the top.
+    const noFilter = client.getQueryData<Product[]>(keys.noFilter);
+    expect(noFilter?.[0]).toEqual(saved);
+    expect(noFilter).toHaveLength(4);
+
+    // Category=tops: untouched (saved is bottoms).
+    expect(client.getQueryData<Product[]>(keys.byCategoryTops)).toEqual([
+      baseProduct,
+      otherProduct,
+    ]);
+
+    // Category=bottoms: saved inserted at the top.
+    const bottoms = client.getQueryData<Product[]>(keys.byCategoryBottoms);
+    expect(bottoms).toHaveLength(2);
+    expect(bottoms?.[0]).toEqual(saved);
+    expect(bottoms?.[1]).toEqual(bottomsProduct);
+
+    // Featured: saved inserted at the top.
+    const featured = client.getQueryData<Product[]>(keys.featured);
+    expect(featured).toHaveLength(2);
+    expect(featured?.[0]).toEqual(saved);
+    expect(featured?.[1]).toEqual(bottomsProduct);
+
+    // Search "linen": untouched (name doesn't contain "linen").
+    expect(client.getQueryData<Product[]>(keys.searchLinen)).toEqual([
+      baseProduct,
+    ]);
+  });
+
+  it("seeds the per-product cache and invalidates the admin stats query on create", async () => {
+    const user = userEvent.setup();
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    seedCaches(client);
+
+    // Prime the admin stats cache as fresh so we can assert it gets invalidated.
+    client.setQueryData(adminStatsKey, { count: 3 });
+    const initialStatsState = client.getQueryState(adminStatsKey);
+    expect(initialStatsState?.isInvalidated).toBe(false);
+
+    const saved: Product = {
+      id: "prod_brand_new",
+      name: "Cashmere Scarf",
+      description: "Soft cashmere scarf.",
+      price: 79.99,
+      imageUrl: "",
+      category: "accessories",
+      sizes: ["OS"],
+      colors: ["Cream"],
+      variants: [{ size: "OS", color: "Cream", stock: 6 }],
+      isFeatured: false,
+    } as unknown as Product;
+    nextSavedProduct = saved;
+
+    // Per-product cache for the new id should not exist yet.
+    expect(client.getQueryData<Product>(productKey(saved.id))).toBeUndefined();
+
+    renderCreate(client);
+    const dialog = await openCreateDialog(user);
+    await fillCreateForm(user, dialog, {
+      name: "Cashmere Scarf",
+      description: "Soft cashmere scarf.",
+      price: "79.99",
+      category: "accessories",
+      sizes: ["OS"],
+      colors: ["Cream"],
+      stock: { "OS::Cream": "6" },
+    });
+
+    await user.click(within(dialog).getByTestId("button-submit-product"));
+
+    expect(createMutate).toHaveBeenCalledTimes(1);
+
+    // Per-product cache: seeded with the canonical saved product so an open
+    // detail view picks it up immediately.
+    expect(client.getQueryData<Product>(productKey(saved.id))).toEqual(saved);
+
+    // Admin stats cache: marked invalidated so it'll refetch on next mount.
+    await waitFor(() => {
+      const state = client.getQueryState(adminStatsKey);
+      expect(state?.isInvalidated).toBe(true);
+    });
+  });
+
+  it("does not invent list caches that have never been seeded when creating", async () => {
+    const user = userEvent.setup();
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    // Only the unfiltered list has ever been rendered.
+    const noFilter = listKey();
+    client.setQueryData<Product[]>(noFilter, [baseProduct, otherProduct]);
+
+    const saved: Product = {
+      id: "prod_unseeded",
+      name: "Linen Tunic",
+      description: "Loose linen tunic.",
+      price: 89.99,
+      imageUrl: "",
+      category: "tops",
+      sizes: ["M"],
+      colors: ["White"],
+      variants: [{ size: "M", color: "White", stock: 3 }],
+      isFeatured: true,
+    } as unknown as Product;
+    nextSavedProduct = saved;
+
+    renderCreate(client);
+    const dialog = await openCreateDialog(user);
+    await fillCreateForm(user, dialog, {
+      name: "Linen Tunic",
+      description: "Loose linen tunic.",
+      price: "89.99",
+      category: "tops",
+      sizes: ["M"],
+      colors: ["White"],
+      stock: { "M::White": "3" },
+      featured: true,
+    });
+
+    await user.click(within(dialog).getByTestId("button-submit-product"));
+
+    expect(createMutate).toHaveBeenCalledTimes(1);
+
+    // Seeded cache: saved inserted at the top.
+    const updatedList = client.getQueryData<Product[]>(noFilter);
+    expect(updatedList).toHaveLength(3);
+    expect(updatedList?.[0]).toEqual(saved);
+
+    // Caches that were never seeded must remain undefined — the optimistic
+    // create must not invent list data the UI never asked for.
+    expect(
+      client.getQueryData<Product[]>(listKey({ category: "tops" })),
+    ).toBeUndefined();
+    expect(
+      client.getQueryData<Product[]>(listKey({ category: "bottoms" })),
     ).toBeUndefined();
     expect(
       client.getQueryData<Product[]>(listKey({ featured: true })),
