@@ -1,11 +1,12 @@
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useCreateProduct,
+  useUpdateProduct,
   getListProductsQueryKey,
   getGetAdminStatsQueryKey,
 } from "@workspace/api-client-react";
-import type { CreateProductBody } from "@workspace/api-client-react";
+import type { CreateProductBody, Product } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,7 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
-import { Plus, X, Upload } from "lucide-react";
+import { Plus, X, Upload, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
@@ -32,7 +33,15 @@ interface VariantState {
   stock: string;
 }
 
-export function NewProductDialog() {
+type ProductFormDialogProps =
+  | { mode: "create"; product?: undefined; trigger?: ReactNode }
+  | { mode: "edit"; product: Product; trigger?: ReactNode };
+
+export function ProductFormDialog(props: ProductFormDialogProps) {
+  const { mode } = props;
+  const isEdit = mode === "edit";
+  const editingProduct = isEdit ? props.product : null;
+
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
 
@@ -54,25 +63,53 @@ export function NewProductDialog() {
   const [stockMap, setStockMap] = useState<Record<string, string>>({});
 
   const createProduct = useCreateProduct();
+  const updateProduct = useUpdateProduct();
+  const isPending = isEdit ? updateProduct.isPending : createProduct.isPending;
 
-  const reset = () => {
-    setName("");
-    setDescription("");
-    setPrice("");
-    setCategory("");
-    setIsFeatured(false);
-    setImageUrl("");
-    setSizes([]);
+  const populateFromProduct = (p: Product | null) => {
+    if (!p) {
+      setName("");
+      setDescription("");
+      setPrice("");
+      setCategory("");
+      setIsFeatured(false);
+      setImageUrl("");
+      setSizes([]);
+      setSizeInput("");
+      setColors([]);
+      setColorInput("");
+      setStockMap({});
+      return;
+    }
+    setName(p.name);
+    setDescription(p.description);
+    setPrice(p.price.toString());
+    setCategory(p.category);
+    setIsFeatured(!!p.isFeatured);
+    setImageUrl(p.imageUrl ?? "");
+    setSizes([...p.sizes]);
     setSizeInput("");
-    setColors([]);
+    setColors([...p.colors]);
     setColorInput("");
-    setStockMap({});
+    const map: Record<string, string> = {};
+    for (const v of p.variants ?? []) {
+      map[`${v.size}::${v.color}`] = v.stock.toString();
+    }
+    setStockMap(map);
   };
 
+  // When opening in edit mode, prefill from the latest product snapshot.
+  useEffect(() => {
+    if (open) {
+      populateFromProduct(editingProduct);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, editingProduct?.id]);
+
   const handleClose = (next: boolean) => {
-    if (createProduct.isPending) return;
+    if (isPending) return;
     setOpen(next);
-    if (!next) reset();
+    if (!next) populateFromProduct(null);
   };
 
   const addSize = () => {
@@ -193,7 +230,12 @@ export function NewProductDialog() {
     const variantBody: Array<{ size: string; color: string; stock: number }> = [];
     for (const v of variants) {
       const stockNum = Number(v.stock);
-      if (v.stock === "" || !Number.isFinite(stockNum) || stockNum < 0 || !Number.isInteger(stockNum)) {
+      if (
+        v.stock === "" ||
+        !Number.isFinite(stockNum) ||
+        stockNum < 0 ||
+        !Number.isInteger(stockNum)
+      ) {
         toast.error(`Stock for ${v.size}/${v.color} must be a non-negative whole number`);
         return;
       }
@@ -212,47 +254,79 @@ export function NewProductDialog() {
       isFeatured,
     };
 
-    createProduct.mutate(
-      { data: body },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getGetAdminStatsQueryKey() });
-          toast.success("Product created");
-          handleClose(false);
-        },
-        onError: (err) => {
-          toast.error(err instanceof Error ? err.message : "Failed to create product");
-        },
-      }
-    );
+    const onSuccess = () => {
+      queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getGetAdminStatsQueryKey() });
+      toast.success(isEdit ? "Product updated" : "Product created");
+      handleClose(false);
+    };
+    const onError = (err: Error) => {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : isEdit
+            ? "Failed to update product"
+            : "Failed to create product",
+      );
+    };
+
+    if (isEdit && editingProduct) {
+      updateProduct.mutate({ id: editingProduct.id, data: body }, { onSuccess, onError });
+    } else {
+      createProduct.mutate({ data: body }, { onSuccess, onError });
+    }
   };
+
+  const defaultTrigger = isEdit ? (
+    <Button
+      type="button"
+      variant="outline"
+      size="icon"
+      className="h-8 w-8 rounded-none"
+      title="Edit product"
+      data-testid={`button-edit-product-${editingProduct?.id}`}
+    >
+      <Pencil className="h-3.5 w-3.5" />
+      <span className="sr-only">Edit product</span>
+    </Button>
+  ) : (
+    <Button
+      className="rounded-none uppercase tracking-widest text-xs"
+      data-testid="button-new-product"
+    >
+      <Plus className="h-4 w-4 mr-2" />
+      New Product
+    </Button>
+  );
+
+  const dialogTitle = isEdit ? "Edit product" : "Create new product";
+  const dialogDescription = isEdit
+    ? "Updates Stripe and the per-(size, color) inventory grid in one step."
+    : "Adds a product to Stripe and creates a per-(size, color) inventory grid.";
+  const submitLabel = isEdit ? "Save changes" : "Create product";
+
+  const namePrefix = isEdit ? "ep" : "np";
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogTrigger asChild>
-        <Button
-          className="rounded-none uppercase tracking-widest text-xs"
-          data-testid="button-new-product"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          New Product
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto rounded-none">
+      <DialogTrigger asChild>{props.trigger ?? defaultTrigger}</DialogTrigger>
+      <DialogContent
+        className="max-w-3xl max-h-[90vh] overflow-y-auto rounded-none"
+        data-testid={isEdit ? "dialog-edit-product" : "dialog-new-product"}
+      >
         <DialogHeader>
-          <DialogTitle className="font-serif">Create new product</DialogTitle>
-          <DialogDescription>
-            Adds a product to Stripe and creates a per-(size, color) inventory grid.
-          </DialogDescription>
+          <DialogTitle className="font-serif">{dialogTitle}</DialogTitle>
+          <DialogDescription>{dialogDescription}</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="np-name" className="text-xs uppercase tracking-wider">Name</Label>
+              <Label htmlFor={`${namePrefix}-name`} className="text-xs uppercase tracking-wider">
+                Name
+              </Label>
               <Input
-                id="np-name"
+                id={`${namePrefix}-name`}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="rounded-none"
@@ -260,9 +334,14 @@ export function NewProductDialog() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="np-category" className="text-xs uppercase tracking-wider">Category</Label>
+              <Label
+                htmlFor={`${namePrefix}-category`}
+                className="text-xs uppercase tracking-wider"
+              >
+                Category
+              </Label>
               <Input
-                id="np-category"
+                id={`${namePrefix}-category`}
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 placeholder="e.g. tops"
@@ -273,9 +352,14 @@ export function NewProductDialog() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="np-description" className="text-xs uppercase tracking-wider">Description</Label>
+            <Label
+              htmlFor={`${namePrefix}-description`}
+              className="text-xs uppercase tracking-wider"
+            >
+              Description
+            </Label>
             <Textarea
-              id="np-description"
+              id={`${namePrefix}-description`}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="rounded-none min-h-[100px]"
@@ -285,9 +369,11 @@ export function NewProductDialog() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="np-price" className="text-xs uppercase tracking-wider">Price (USD)</Label>
+              <Label htmlFor={`${namePrefix}-price`} className="text-xs uppercase tracking-wider">
+                Price (USD)
+              </Label>
               <Input
-                id="np-price"
+                id={`${namePrefix}-price`}
                 type="number"
                 inputMode="decimal"
                 step="0.01"
@@ -300,14 +386,17 @@ export function NewProductDialog() {
             </div>
             <div className="flex items-end gap-2">
               <input
-                id="np-featured"
+                id={`${namePrefix}-featured`}
                 type="checkbox"
                 checked={isFeatured}
                 onChange={(e) => setIsFeatured(e.target.checked)}
                 className="h-4 w-4"
                 data-testid="checkbox-product-featured"
               />
-              <Label htmlFor="np-featured" className="text-xs uppercase tracking-wider">
+              <Label
+                htmlFor={`${namePrefix}-featured`}
+                className="text-xs uppercase tracking-wider"
+              >
                 Featured on home page
               </Label>
             </div>
@@ -435,11 +524,7 @@ export function NewProductDialog() {
             {colors.length > 0 && (
               <div className="flex flex-wrap gap-2 pt-2" data-testid="list-colors">
                 {colors.map((c) => (
-                  <Badge
-                    key={c}
-                    variant="secondary"
-                    className="rounded-none gap-2"
-                  >
+                  <Badge key={c} variant="secondary" className="rounded-none gap-2">
                     {c}
                     <button
                       type="button"
@@ -462,7 +547,9 @@ export function NewProductDialog() {
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50">
                     <tr>
-                      <th className="text-left px-3 py-2 font-medium uppercase tracking-wider text-xs">Size \ Color</th>
+                      <th className="text-left px-3 py-2 font-medium uppercase tracking-wider text-xs">
+                        Size \ Color
+                      </th>
                       {colors.map((c) => (
                         <th
                           key={c}
@@ -507,22 +594,30 @@ export function NewProductDialog() {
               variant="outline"
               className="rounded-none uppercase tracking-widest text-xs"
               onClick={() => handleClose(false)}
-              disabled={createProduct.isPending}
+              disabled={isPending}
             >
               Cancel
             </Button>
             <Button
               type="submit"
               className="rounded-none uppercase tracking-widest text-xs"
-              disabled={createProduct.isPending || imageUploading}
+              disabled={isPending || imageUploading}
               data-testid="button-submit-product"
             >
-              {createProduct.isPending && <Spinner className="h-4 w-4 mr-2" />}
-              Create product
+              {isPending && <Spinner className="h-4 w-4 mr-2" />}
+              {submitLabel}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
   );
+}
+
+export function NewProductDialog() {
+  return <ProductFormDialog mode="create" />;
+}
+
+export function EditProductDialog({ product }: { product: Product }) {
+  return <ProductFormDialog mode="edit" product={product} />;
 }

@@ -32,6 +32,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - Order history with shipping status, 4-step progress indicator (Order Placed → Processing → Shipped → Delivered), tracking carrier/number, and estimated delivery
 - Email popup (3s delay, 10% off code `F8FIRST`, controlled by `f8_has_seen_modal` localStorage)
 - Admin dashboard (stats: revenue, orders, customers, products; orders table with per-row status dropdown that auto-stamps `shippedAt`/`deliveredAt`/`estimatedDeliveryAt`)
+- Admin product management: create, **edit (PUT /api/products/:id, full update with Stripe + variants atomic w/ rollback)**, and **per-(size,color) quick stock adjust (PATCH /api/products/:id/variant)** via `ProductFormDialog` (mode=create|edit) and `StockQuickEditDialog`. Stripe prices are immutable, so price edits create a new price and deactivate the old one (best-effort).
 - About/FAQ page with contact info (F8merch@gmail.com, 786-967-9149)
 
 ## Admin Credentials

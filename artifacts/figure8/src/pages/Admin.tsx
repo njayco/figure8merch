@@ -1,8 +1,9 @@
 import { useGetAdminStats, useListAdminOrders, useListProducts, useListCustomers, useUpdateOrderStatus, useHealthCheck, useListLowStockInventory, useRestockVariant, getListAdminOrdersQueryKey, getGetAdminStatsQueryKey, getHealthCheckQueryKey, getListLowStockInventoryQueryKey, ApiError } from "@workspace/api-client-react";
 import type { Product, ProductVariant, AdminOrder, UpdateOrderStatusBodyStatus, HealthStatus, LowStockVariant } from "@workspace/api-client-react";
 import { useState } from "react";
-import { NewProductDialog } from "@/components/NewProductDialog";
+import { NewProductDialog, EditProductDialog } from "@/components/ProductFormDialog";
 import { ProductImage } from "@/components/ProductImage";
+import { StockQuickEditDialog } from "@/components/StockQuickEditDialog";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -617,36 +618,8 @@ export function Admin() {
               </div>
             </div>
             <p className="text-sm text-muted-foreground mb-4">
-              New products created here are added to Stripe and tracked with per-(size, color) inventory. Edits to existing products still sync from Stripe.
+              Create, edit, and adjust per-(size, color) stock here. Use the pencil icon to edit a product&rsquo;s details, or the inventory icon for a quick stock change. Changes sync to Stripe automatically.
             </p>
-            <Alert className="rounded-none mb-4 bg-muted/30">
-              <Info className="h-4 w-4" />
-              <AlertTitle>Configuring product sizes</AlertTitle>
-              <AlertDescription>
-                <p className="mb-2">
-                  To show a size selector on a product page, add a metadata field to the product in Stripe:
-                </p>
-                <ul className="list-disc pl-5 space-y-1">
-                  <li>
-                    Open the product in the Stripe Dashboard, scroll to <span className="font-medium">Metadata</span>, and add a key named{" "}
-                    <code className="px-1 py-0.5 bg-muted text-foreground rounded text-xs font-mono">sizes</code>.
-                  </li>
-                  <li>
-                    Set the value to a comma-separated list, for example{" "}
-                    <code className="px-1 py-0.5 bg-muted text-foreground rounded text-xs font-mono">XS,S,M,L,XL</code>.
-                  </li>
-                  <li>
-                    Save the product. The size selector will appear on the product page automatically.
-                  </li>
-                </ul>
-                <p className="mt-2">
-                  Other supported metadata fields:{" "}
-                  <code className="px-1 py-0.5 bg-muted text-foreground rounded text-xs font-mono">category</code> and{" "}
-                  <code className="px-1 py-0.5 bg-muted text-foreground rounded text-xs font-mono">featured</code> (set to{" "}
-                  <code className="px-1 py-0.5 bg-muted text-foreground rounded text-xs font-mono">true</code>).
-                </p>
-              </AlertDescription>
-            </Alert>
             <div className="bg-background border border-border">
               <Table>
                 <TableHeader>
@@ -660,6 +633,7 @@ export function Admin() {
                     <TableHead className="uppercase tracking-wider font-bold">Inventory</TableHead>
                     <TableHead className="uppercase tracking-wider font-bold">Featured</TableHead>
                     <TableHead className="uppercase tracking-wider font-bold">Stripe</TableHead>
+                    <TableHead className="uppercase tracking-wider font-bold text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -731,6 +705,14 @@ export function Admin() {
                           {product.id}
                           <ExternalLink className="h-3 w-3" />
                         </a>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <EditProductDialog product={product} />
+                          {product.variants && product.variants.length > 0 && (
+                            <StockQuickEditDialog product={product} />
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

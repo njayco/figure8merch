@@ -101,6 +101,13 @@ export interface Product {
   stripePriceId: string;
 }
 
+export interface UpdateVariantStockBody {
+  size: string;
+  color: string;
+  /** @minimum 0 */
+  stock: number;
+}
+
 export interface CreateProductBody {
   name: string;
   description: string;

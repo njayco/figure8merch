@@ -207,6 +207,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Product"
+        "400":
+          description: Invalid product data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     delete:
       operationId: deleteProduct
       tags: [products, admin]
@@ -222,6 +234,45 @@ paths:
       responses:
         "204":
           description: Deleted
+
+  /products/{id}/variant:
+    patch:
+      operationId: updateProductVariantStock
+      tags: [products, admin]
+      summary: Update stock for a single (size, color) variant of a product (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateVariantStockBody"
+      responses:
+        "200":
+          description: Updated variant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductVariant"
+        "400":
+          description: Invalid stock value
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Variant not found for this product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /products/featured:
     get:
@@ -885,6 +936,21 @@ components:
           type: string
         stock:
           type: integer
+      required:
+        - size
+        - color
+        - stock
+
+    UpdateVariantStockBody:
+      type: object
+      properties:
+        size:
+          type: string
+        color:
+          type: string
+        stock:
+          type: integer
+          minimum: 0
       required:
         - size
         - color

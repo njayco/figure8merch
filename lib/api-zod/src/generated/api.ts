@@ -225,6 +225,27 @@ export const DeleteProductParams = zod.object({
 });
 
 /**
+ * @summary Update stock for a single (size, color) variant of a product (admin)
+ */
+export const UpdateProductVariantStockParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const updateProductVariantStockBodyStockMin = 0;
+
+export const UpdateProductVariantStockBody = zod.object({
+  size: zod.string(),
+  color: zod.string(),
+  stock: zod.number().min(updateProductVariantStockBodyStockMin),
+});
+
+export const UpdateProductVariantStockResponse = zod.object({
+  size: zod.string(),
+  color: zod.string(),
+  stock: zod.number(),
+});
+
+/**
  * @summary List featured / selected pieces
  */
 export const ListFeaturedProductsResponseItem = zod.object({

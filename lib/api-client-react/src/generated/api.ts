@@ -37,12 +37,14 @@ import type {
   MessageResponse,
   Order,
   Product,
+  ProductVariant,
   RegisterBody,
   RemoveFromCartParams,
   RestockVariantBody,
   UpdateCartItemBody,
   UpdateCartItemParams,
   UpdateOrderStatusBody,
+  UpdateVariantStockBody,
   User,
 } from "./api.schemas";
 
@@ -653,7 +655,7 @@ export const updateProduct = async (
 };
 
 export const getUpdateProductMutationOptions = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<ErrorResponse>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -694,13 +696,13 @@ export type UpdateProductMutationResult = NonNullable<
   Awaited<ReturnType<typeof updateProduct>>
 >;
 export type UpdateProductMutationBody = BodyType<CreateProductBody>;
-export type UpdateProductMutationError = ErrorType<unknown>;
+export type UpdateProductMutationError = ErrorType<ErrorResponse>;
 
 /**
  * @summary Update a product (admin)
  */
 export const useUpdateProduct = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<ErrorResponse>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -801,6 +803,94 @@ export const useDeleteProduct = <
   TContext
 > => {
   return useMutation(getDeleteProductMutationOptions(options));
+};
+
+/**
+ * @summary Update stock for a single (size, color) variant of a product (admin)
+ */
+export const getUpdateProductVariantStockUrl = (id: string) => {
+  return `/api/products/${id}/variant`;
+};
+
+export const updateProductVariantStock = async (
+  id: string,
+  updateVariantStockBody: UpdateVariantStockBody,
+  options?: RequestInit,
+): Promise<ProductVariant> => {
+  return customFetch<ProductVariant>(getUpdateProductVariantStockUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateVariantStockBody),
+  });
+};
+
+export const getUpdateProductVariantStockMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateProductVariantStock>>,
+    TError,
+    { id: string; data: BodyType<UpdateVariantStockBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateProductVariantStock>>,
+  TError,
+  { id: string; data: BodyType<UpdateVariantStockBody> },
+  TContext
+> => {
+  const mutationKey = ["updateProductVariantStock"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateProductVariantStock>>,
+    { id: string; data: BodyType<UpdateVariantStockBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateProductVariantStock(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateProductVariantStockMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateProductVariantStock>>
+>;
+export type UpdateProductVariantStockMutationBody =
+  BodyType<UpdateVariantStockBody>;
+export type UpdateProductVariantStockMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Update stock for a single (size, color) variant of a product (admin)
+ */
+export const useUpdateProductVariantStock = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateProductVariantStock>>,
+    TError,
+    { id: string; data: BodyType<UpdateVariantStockBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateProductVariantStock>>,
+  TError,
+  { id: string; data: BodyType<UpdateVariantStockBody> },
+  TContext
+> => {
+  return useMutation(getUpdateProductVariantStockMutationOptions(options));
 };
 
 /**
